@@ -1,0 +1,24 @@
+# Secrets
+.reflect_config
+reflect-app/.env.local
+
+# Local data
+entries.json
+prompt.log
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+reflect-app/node_modules/
+wrapped/node_modules/
+
+# Build
+reflect-app/build/
+wrapped/dist/
+
+# OS
+.DS_Store
