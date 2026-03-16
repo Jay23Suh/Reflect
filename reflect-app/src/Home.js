@@ -119,7 +119,7 @@ function EntryChart({ entries }) {
   const buckets = buildBuckets(entries, period)
   const maxCount = Math.max(...buckets.map(b => b.count), 1)
 
-  const W = 600, H = 160, padL = 28, padB = 28, padR = 12, padT = 12
+  const W = 600, H = 170, padL = 28, padB = 28, padR = 12, padT = 22
   const chartW = W - padL - padR
   const chartH = H - padT - padB
   const barW = Math.max(4, (chartW / buckets.length) * 0.6)
