@@ -61,6 +61,13 @@ function computeStats(entries) {
     longestStreak = Math.max(longestStreak, currentStreak)
   }
 
+  const categoryCounts = {}
+  answered.forEach(e => {
+    if (e.category) categoryCounts[e.category] = (categoryCounts[e.category] ?? 0) + 1
+  })
+  const topCategoryEntry = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]
+  const topCategory = topCategoryEntry ? topCategoryEntry[0] : null
+
   return {
     totalEntries: answered.length,
     totalWords,
@@ -68,6 +75,7 @@ function computeStats(entries) {
     longestStreak,
     mostActiveDay,
     mostActiveHour,
+    topCategory,
   }
 }
 
@@ -211,6 +219,28 @@ function buildSlides(entries) {
 
   if (stats.longestStreak > 1) {
     defs.push({ type: 'count', bg: '#181205', accent: '#ffc840', value: stats.longestStreak, label: 'day streak this week', context: 'consistency is a form of care.' })
+  }
+
+  const CATEGORY_LABELS = {
+    gratitude:   'Gratitude',
+    compassion:  'Self-Compassion',
+    values:      'Values & Meaning',
+    emotions:    'Emotions',
+    grounding:   'Present Moment',
+  }
+  const CATEGORY_SUBTEXTS = {
+    gratitude:   'you kept returning to what you already have.',
+    compassion:  'you were learning to be kinder to yourself.',
+    values:      'you were asking what actually matters.',
+    emotions:    'you were letting yourself feel it.',
+    grounding:   'you were finding your way back to now.',
+  }
+  if (stats.topCategory) {
+    defs.push({
+      type: 'text', bg: '#0d0a1a', accent: '#C39BD3',
+      headline: CATEGORY_LABELS[stats.topCategory] || stats.topCategory,
+      subtext: CATEGORY_SUBTEXTS[stats.topCategory] || 'the theme you kept coming back to.',
+    })
   }
 
   defs.push({ type: 'closing' })
