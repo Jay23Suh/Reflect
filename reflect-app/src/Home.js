@@ -2,28 +2,76 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 import Abstract from './Wrapped'
 
-const QUESTIONS = [
-  "What's something you're grateful for right now?",
-  "What's one small win you had today?",
-  "Who made you smile recently, and why?",
-  "What's something you're looking forward to?",
-  "What's a moment from today you want to remember?",
-  "What's something kind you did or witnessed today?",
-  "What gave you energy today?",
-  "What's one thing you learned today?",
-  "What made today different from yesterday?",
-  "What's something beautiful you noticed today?",
-  "What are you proud of yourself for?",
-  "What's a challenge you handled well recently?",
-  "Who are you thinking about fondly right now?",
-  "What's a simple pleasure you enjoyed today?",
-  "What's something you're excited about?",
-  "What did you do today that felt meaningful?",
-  "What's something that made you laugh lately?",
-  "What's a goal you're making progress on?",
-  "What's something you're looking forward to tomorrow?",
-  "What's a strength you used today?",
-]
+const QUESTIONS = {
+  gratitude: [
+    "What's something you're grateful for in this exact moment?",
+    "What's one thing about your body you appreciate today?",
+    "What's something in your surroundings you feel thankful for?",
+    "What's a routine or habit you're glad you have?",
+    "What's a comfort you enjoyed today — food, warmth, rest, music?",
+    "Who are you grateful for today, and why?",
+    "What's a past version of you that you feel thankful for?",
+    "What's something you have now that you once really wanted?",
+    "What's a piece of advice you're grateful you received?",
+    "What's a small joy from today you don't want to overlook?",
+  ],
+  compassion: [
+    "How can you be a little gentler with yourself right now?",
+    "What's one thing you're willing to forgive yourself for today?",
+    "What's something you're struggling with that deserves kindness, not criticism?",
+    "How did you show up for yourself today, even in a tiny way?",
+    "What's a mistake you can treat as a lesson instead of a failure?",
+    "Who could use a bit of understanding from you right now?",
+    "What's one kind thought you can offer yourself?",
+    "What's a limit or boundary you honored that protected your energy?",
+    "What's one way you could make tomorrow a bit easier on yourself?",
+    "If a close friend felt like you do now, what would you say to them?",
+  ],
+  values: [
+    "What mattered most to you about today?",
+    "What did you do today that felt aligned with your values?",
+    "What's an area of life where you want to show up more fully?",
+    "What gave you a sense of purpose today, even briefly?",
+    "What kind of person do you want to be in small, daily moments?",
+    "What value — honesty, curiosity, kindness — felt strongest in you today?",
+    "What's one tiny action you took that moved you toward the life you want?",
+    "Where did you choose what mattered over what was easiest today?",
+    "What's something you said no to that protected what you care about?",
+    "If today had a theme, what would it be?",
+  ],
+  emotions: [
+    "What emotion is most noticeable in you right now?",
+    "Where did you feel that emotion in your body today?",
+    "What's something that felt surprisingly heavy today?",
+    "What's something that felt surprisingly light or easy today?",
+    "What emotion did you try to push away, and why?",
+    "When did you feel most at ease today?",
+    "When did you feel most tense or on edge?",
+    "What do you wish you could say out loud that you're holding inside?",
+    "What's one emotion you can allow, just for a few breaths?",
+    "What helped you regulate or soothe yourself today, even a little?",
+  ],
+  grounding: [
+    "What sensations can you feel in your body right now?",
+    "What are three things you can see, two you can hear, and one you can feel?",
+    "What does your breathing actually feel like in this moment?",
+    "What's one place in your body that feels okay or neutral?",
+    "What's a small detail around you that you hadn't noticed before?",
+    "What tells you that you are safe enough in this moment?",
+    "How does your body feel when you gently unclench your jaw and shoulders?",
+    "What's one thing you can let go of, just for the next minute?",
+    "What's a small action you could take right now to feel 5% more settled?",
+    "If you named this moment as a weather pattern, what would it be?",
+  ],
+}
+
+function pickQuestion() {
+  const categories = Object.keys(QUESTIONS)
+  const category = categories[Math.floor(Math.random() * categories.length)]
+  const list = QUESTIONS[category]
+  const question = list[Math.floor(Math.random() * list.length)]
+  return { question, category }
+}
 
 const HOURS_BETWEEN_POPUPS = 2
 
@@ -32,6 +80,7 @@ export default function Home({ session }) {
   const [entries, setEntries] = useState([])
   const [showPopup, setShowPopup] = useState(false)
   const [question, setQuestion] = useState('')
+  const [questionCategory, setQuestionCategory] = useState('')
   const [answer, setAnswer] = useState('')
   const [saving, setSaving] = useState(false)
   const [stats, setStats] = useState({ total: 0, streak: 0, thisWeek: 0 })
@@ -115,7 +164,9 @@ export default function Home({ session }) {
   }, [userId])
 
   function triggerPopup() {
-    setQuestion(QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)])
+    const { question, category } = pickQuestion()
+    setQuestion(question)
+    setQuestionCategory(category)
     setAnswer('')
     setShowPopup(true)
   }
@@ -146,6 +197,7 @@ export default function Home({ session }) {
     await supabase.from('journal_entries').insert({
       user_id: userId,
       question,
+      category: questionCategory,
       answer: answer.trim(),
     })
     await supabase.from('activity_tracker')
