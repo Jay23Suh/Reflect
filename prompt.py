@@ -28,15 +28,27 @@ CONFIG_FILE  = os.path.expanduser("~/.reflect_config")
 JOURNAL_FILE = os.path.expanduser("~/.reflect_entries.json")
 PLIST_PATH   = os.path.expanduser("~/Library/LaunchAgents/com.reflect.prompt.plist")
 
-# ── Colors (matching web app) ─────────────────────────────────────────────────
-CREAM      = "#fdf6ec"
-CARD_BG    = "#fff8f0"
-TAN        = "#e8d5bb"
-BROWN      = "#b08a60"
-DARK       = "#2e231a"
-MUTED      = "#9a8070"
-ACCENT     = "#c8855a"
-ACCENT_HVR = "#b0724a"
+# ── Colors — (light, dark) tuples matching the web app palette ────────────────
+# Light: cream base, Deep Mind Blue text, Pink/Orange accents
+# Dark:  #0A0B16 void base, Bioluminescent Pink text, Mint accents
+
+BG          = ("#fdf6ec",  "#0A0B16")
+CARD        = ("#ffffff",  "#0d1628")
+BORDER      = ("#f0d9c8",  "#1a3a5c")
+TEXT        = ("#005499",  "#FFA6C9")
+TEXT_MUTED  = ("#7a9db5",  "#76D7C4")
+TEXT_SOFT   = ("#5a7a9a",  "#c9eae5")
+ACCENT      = ("#F7971D",  "#F7971D")   # Awakening Orange — same in both modes
+ACCENT_HVR  = ("#e0861a",  "#e0861a")
+MINT        = ("#76D7C4",  "#76D7C4")
+PINK        = ("#FFA6C9",  "#FFA6C9")
+INPUT_BG    = ("#fffcf8",  "#061020")
+INPUT_BDR   = ("#e8d0bc",  "#1e4878")
+
+# Fonts — macOS built-ins that mirror the web font choices
+FONT_HEADER  = "Georgia"          # mirrors Cormorant Garamond
+FONT_BODY    = "Helvetica Neue"   # mirrors Quicksand
+FONT_MONO    = "Menlo"            # mirrors Space Mono
 
 # ── Questions (by category) ────────────────────────────────────────────────────
 QUESTIONS = {
@@ -102,6 +114,14 @@ QUESTIONS = {
     ],
 }
 
+CATEGORY_LABELS = {
+    "gratitude":  "✦ gratitude",
+    "compassion": "✦ compassion",
+    "values":     "✦ values & meaning",
+    "emotions":   "✦ emotions",
+    "grounding":  "✦ grounding",
+}
+
 def pick_question():
     category = random.choice(list(QUESTIONS.keys()))
     question  = random.choice(QUESTIONS[category])
@@ -126,12 +146,9 @@ def save_config(email, password):
         }, f, indent=2)
 
 def get_executable_path():
-    """Return the path to use in the LaunchAgent — works for both .app and raw script."""
     if getattr(sys, 'frozen', False):
-        # Running inside PyInstaller bundle
         return sys.executable
     else:
-        # Running as plain Python script
         return f"{sys.executable} {os.path.abspath(__file__)}"
 
 def install_launch_agent():
@@ -169,13 +186,10 @@ def install_launch_agent():
 </plist>"""
 
     os.makedirs(os.path.dirname(PLIST_PATH), exist_ok=True)
-    # Unload existing if present
-    subprocess.run(["launchctl", "unload", PLIST_PATH],
-                   capture_output=True)
+    subprocess.run(["launchctl", "unload", PLIST_PATH], capture_output=True)
     with open(PLIST_PATH, "w") as f:
         f.write(plist)
-    subprocess.run(["launchctl", "load", PLIST_PATH],
-                   capture_output=True)
+    subprocess.run(["launchctl", "load", PLIST_PATH], capture_output=True)
 
 def get_supabase(email, password):
     try:
@@ -239,70 +253,67 @@ def push_skip_to_supabase(client, user_id, now):
 # ── Setup window ──────────────────────────────────────────────────────────────
 
 def show_setup():
-    ctk.set_appearance_mode("light")
+    ctk.set_appearance_mode("system")
     root = ctk.CTk()
     root.title("reflect — setup")
-    root.configure(fg_color=CREAM)
+    root.configure(fg_color=BG)
     root.resizable(False, False)
 
-    W, H = 440, 520
+    W, H = 440, 540
     root.geometry(f"{W}x{H}")
     root.eval('tk::PlaceWindow . center')
 
-    is_login = [False]  # start in sign-up mode
+    is_login = [False]
 
-    card = ctk.CTkFrame(root, fg_color=CARD_BG, corner_radius=20,
-                        border_width=1, border_color=TAN)
+    card = ctk.CTkFrame(root, fg_color=CARD, corner_radius=20,
+                        border_width=1, border_color=BORDER)
     card.pack(fill="both", expand=True, padx=16, pady=16)
 
     # Header
-    ctk.CTkLabel(card, text="✦", text_color=BROWN,
-                 font=ctk.CTkFont(family="Georgia", size=28),
+    ctk.CTkLabel(card, text="✦", text_color=PINK,
+                 font=ctk.CTkFont(family=FONT_HEADER, size=28),
                  fg_color="transparent").pack(pady=(32, 0))
-    ctk.CTkLabel(card, text="reflect", text_color=DARK,
-                 font=ctk.CTkFont(family="Georgia", size=26),
-                 fg_color="transparent").pack(pady=(4, 0))
+    ctk.CTkLabel(card, text="reflect", text_color=TEXT,
+                 font=ctk.CTkFont(family=FONT_HEADER, size=28),
+                 fg_color="transparent").pack(pady=(2, 0))
     ctk.CTkLabel(card, text="your daily journaling companion",
-                 text_color=MUTED,
-                 font=ctk.CTkFont(family="Georgia", size=13),
+                 text_color=TEXT_MUTED,
+                 font=ctk.CTkFont(family=FONT_MONO, size=11),
                  fg_color="transparent").pack(pady=(4, 24))
 
-    # Form fields
     input_opts = dict(
         width=320, height=42,
-        fg_color="#fffaf4", border_color=TAN, border_width=1,
+        fg_color=INPUT_BG, border_color=INPUT_BDR, border_width=1,
         corner_radius=10,
-        font=ctk.CTkFont(family="Helvetica Neue", size=13),
-        text_color=DARK,
+        font=ctk.CTkFont(family=FONT_BODY, size=13),
+        text_color=TEXT,
     )
 
-    name_entry = ctk.CTkEntry(card, placeholder_text="your name", **input_opts)
+    name_entry  = ctk.CTkEntry(card, placeholder_text="your name",  **input_opts)
     name_entry.pack(pady=(0, 10))
-
     email_entry = ctk.CTkEntry(card, placeholder_text="your email", **input_opts)
     email_entry.pack(pady=(0, 10))
-
-    pass_entry = ctk.CTkEntry(card, placeholder_text="password", show="•", **input_opts)
+    pass_entry  = ctk.CTkEntry(card, placeholder_text="password", show="•", **input_opts)
     pass_entry.pack(pady=(0, 10))
 
     msg_label = ctk.CTkLabel(card, text="", text_color=ACCENT,
-                             font=ctk.CTkFont(size=12),
+                             font=ctk.CTkFont(family=FONT_BODY, size=12),
                              fg_color="transparent", wraplength=300)
     msg_label.pack(pady=(0, 6))
 
     submit_btn = ctk.CTkButton(
         card, text="create account",
         fg_color=ACCENT, text_color="white", hover_color=ACCENT_HVR,
-        font=ctk.CTkFont(family="Helvetica Neue", size=14, weight="bold"),
+        font=ctk.CTkFont(family=FONT_BODY, size=14, weight="bold"),
         width=320, height=44, corner_radius=10,
     )
     submit_btn.pack(pady=(0, 10))
 
     toggle_btn = ctk.CTkButton(
         card, text="already have an account? sign in",
-        fg_color="transparent", text_color=BROWN,
-        hover_color=TAN, border_width=0,
-        font=ctk.CTkFont(family="Helvetica Neue", size=12),
+        fg_color="transparent", text_color=TEXT_MUTED,
+        hover_color=("rgba(0,84,153,0.06)", "#0d1e30"), border_width=0,
+        font=ctk.CTkFont(family=FONT_MONO, size=11),
         width=320, height=32,
     )
     toggle_btn.pack()
@@ -353,14 +364,12 @@ def show_setup():
 
             save_config(email, pwd)
             install_launch_agent()
-
             root.after(0, lambda: show_success(root, card))
 
         threading.Thread(target=_do, daemon=True).start()
 
     submit_btn.configure(command=on_submit)
     pass_entry.bind("<Return>", lambda e: on_submit())
-
     root.mainloop()
 
 
@@ -369,16 +378,16 @@ def show_success(root, card):
         w.destroy()
 
     ctk.CTkLabel(card, text="✦", text_color=ACCENT,
-                 font=ctk.CTkFont(family="Georgia", size=36),
+                 font=ctk.CTkFont(family=FONT_HEADER, size=36),
                  fg_color="transparent").pack(pady=(60, 0))
     ctk.CTkLabel(card, text="you're all set",
-                 text_color=DARK,
-                 font=ctk.CTkFont(family="Georgia", size=22),
+                 text_color=TEXT,
+                 font=ctk.CTkFont(family=FONT_HEADER, size=24),
                  fg_color="transparent").pack(pady=(12, 0))
     ctk.CTkLabel(card,
                  text="reflect will prompt you every 2 hours.\nyour first prompt is coming up.",
-                 text_color=MUTED,
-                 font=ctk.CTkFont(family="Georgia", size=13),
+                 text_color=TEXT_MUTED,
+                 font=ctk.CTkFont(family=FONT_BODY, size=13),
                  justify="center", fg_color="transparent").pack(pady=(10, 0))
 
     root.after(3000, root.destroy)
@@ -391,7 +400,6 @@ def show_prompt():
     prompted_at = datetime.now()
     first_key   = [None]
 
-    # Auth in background
     sb = [None, None]
     auth_thread = None
     if SUPABASE_AVAILABLE:
@@ -405,42 +413,52 @@ def show_prompt():
         auth_thread = threading.Thread(target=_auth, daemon=True)
         auth_thread.start()
 
-    ctk.set_appearance_mode("light")
+    ctk.set_appearance_mode("system")
     root = ctk.CTk()
     root.title("")
-    root.configure(fg_color=CREAM)
+    root.configure(fg_color=BG)
     root.overrideredirect(True)
     root.attributes("-topmost", True)
 
-    W, H = 520, 368
+    W, H = 520, 390
     px, py = root.winfo_pointerx(), root.winfo_pointery()
     root.geometry(f"{W}x{H}+{px - W // 2}+{py - H // 2}")
     root.lift()
     root.focus_force()
 
-    card = ctk.CTkFrame(root, fg_color=CARD_BG, corner_radius=20,
-                        border_width=1, border_color=TAN)
+    card = ctk.CTkFrame(root, fg_color=CARD, corner_radius=20,
+                        border_width=1, border_color=BORDER)
     card.pack(fill="both", expand=True, padx=2, pady=2)
 
-    ctk.CTkLabel(card, text="✦  a moment to reflect",
-                 text_color=BROWN,
-                 font=ctk.CTkFont(family="Georgia", size=12),
-                 fg_color="transparent").pack(pady=(26, 0))
+    # Top row: logo + category tag
+    top_row = ctk.CTkFrame(card, fg_color="transparent")
+    top_row.pack(fill="x", padx=28, pady=(22, 0))
 
+    ctk.CTkLabel(top_row, text="✦ reflect", text_color=PINK,
+                 font=ctk.CTkFont(family=FONT_HEADER, size=13),
+                 fg_color="transparent").pack(side="left")
+
+    ctk.CTkLabel(top_row, text=CATEGORY_LABELS.get(category, category),
+                 text_color=TEXT_MUTED,
+                 font=ctk.CTkFont(family=FONT_MONO, size=10),
+                 fg_color="transparent").pack(side="right")
+
+    # Question
     ctk.CTkLabel(card, text=question,
-                 text_color=DARK,
-                 font=ctk.CTkFont(family="Georgia", size=17, weight="bold"),
-                 wraplength=430, justify="center",
-                 fg_color="transparent").pack(pady=(12, 0), padx=28)
+                 text_color=TEXT,
+                 font=ctk.CTkFont(family=FONT_HEADER, size=18, weight="bold"),
+                 wraplength=440, justify="center",
+                 fg_color="transparent").pack(pady=(14, 0), padx=28)
 
+    # Answer box
     answer_box = ctk.CTkTextbox(
-        card, height=100, width=450,
-        fg_color="#fffaf4", border_color=TAN, border_width=1,
+        card, height=110, width=460,
+        fg_color=INPUT_BG, border_color=INPUT_BDR, border_width=1,
         corner_radius=10,
-        font=ctk.CTkFont(family="Helvetica Neue", size=13),
-        text_color=DARK,
+        font=ctk.CTkFont(family=FONT_BODY, size=13),
+        text_color=TEXT,
     )
-    answer_box.pack(pady=(16, 0), padx=28)
+    answer_box.pack(pady=(14, 0), padx=28)
     answer_box.focus_set()
 
     def on_key(_event=None):
@@ -490,20 +508,26 @@ def show_prompt():
 
     answer_box.bind("<Command-Return>", submit)
 
+    # Buttons + hint
     btn_row = ctk.CTkFrame(card, fg_color="transparent")
-    btn_row.pack(pady=(14, 24))
+    btn_row.pack(pady=(12, 0))
 
-    ctk.CTkButton(btn_row, text="Skip",
-                  fg_color="transparent", text_color=BROWN,
-                  hover_color=TAN, border_width=0,
-                  font=ctk.CTkFont(family="Helvetica Neue", size=13),
+    ctk.CTkButton(btn_row, text="skip",
+                  fg_color="transparent", text_color=TEXT_MUTED,
+                  hover_color=BORDER, border_width=0,
+                  font=ctk.CTkFont(family=FONT_BODY, size=13),
                   width=80, height=36, command=skip).pack(side="left", padx=(0, 8))
 
-    ctk.CTkButton(btn_row, text="Save  ↵",
+    ctk.CTkButton(btn_row, text="save  ↵",
                   fg_color=ACCENT, text_color="white",
                   hover_color=ACCENT_HVR, border_width=0,
-                  font=ctk.CTkFont(family="Helvetica Neue", size=13, weight="bold"),
+                  font=ctk.CTkFont(family=FONT_BODY, size=13, weight="bold"),
                   width=110, height=36, command=submit).pack(side="left")
+
+    ctk.CTkLabel(card, text="⌘ + return to save",
+                 text_color=TEXT_MUTED,
+                 font=ctk.CTkFont(family=FONT_MONO, size=10),
+                 fg_color="transparent").pack(pady=(6, 18))
 
     root.mainloop()
 
