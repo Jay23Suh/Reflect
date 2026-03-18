@@ -19,6 +19,9 @@ wrapped/node_modules/
 # Build
 reflect-app/build/
 wrapped/dist/
+build/
+dist/
+*.spec
 
 # OS
 .DS_Store
