@@ -8,6 +8,17 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [isForgot, setIsForgot] = useState(false)  // eslint-disable-line
+
+  const handleForgot = async () => {
+    setLoading(true)
+    setMessage('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    setMessage(error ? error.message : 'check your email for a reset link')
+    setLoading(false)
+  }
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -55,12 +66,30 @@ export default function Auth() {
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
           />
           {message && <p className="auth-message">{message}</p>}
-          <button className="auth-btn" onClick={handleSubmit} disabled={loading}>
-            {loading ? '...' : isLogin ? 'sign in' : 'create account'}
-          </button>
-          <button className="auth-toggle" onClick={() => setIsLogin(!isLogin)}>
-            {isLogin ? "don't have an account? sign up" : 'already have an account? sign in'}
-          </button>
+          {isForgot ? (
+            <>
+              <button className="auth-btn" onClick={handleForgot} disabled={loading}>
+                {loading ? '...' : 'send reset link'}
+              </button>
+              <button className="auth-toggle" onClick={() => { setIsForgot(false); setMessage('') }}>
+                back to sign in
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="auth-btn" onClick={handleSubmit} disabled={loading}>
+                {loading ? '...' : isLogin ? 'sign in' : 'create account'}
+              </button>
+              {isLogin && (
+                <button className="auth-toggle" onClick={() => { setIsForgot(true); setMessage('') }}>
+                  forgot password?
+                </button>
+              )}
+              <button className="auth-toggle" onClick={() => setIsLogin(!isLogin)}>
+                {isLogin ? "don't have an account? sign up" : 'already have an account? sign in'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
