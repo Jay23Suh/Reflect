@@ -56,7 +56,7 @@ struct HomeView: View {
 
                 // Write now button
                 Button {
-                    NotificationCenter.default.post(name: NSNotification.Name("showJournalPopup"), object: nil)
+                    NotificationCenter.default.post(name: .showJournalPopup, object: nil)
                 } label: {
                     HStack {
                         Image(systemName: "pencil")

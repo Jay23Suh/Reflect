@@ -3,8 +3,9 @@ import SwiftUI
 struct StatsView: View {
     let entries: [Entry]
     @Environment(\.colorScheme) var scheme
+    @State private var sentimentScores: [UUID: Double] = [:]
 
-    private var stats: ReflectStats { ReflectStats(entries: entries) }
+    private var stats: ReflectStats { ReflectStats(entries: entries, sentimentScores: sentimentScores) }
 
     var body: some View {
         ScrollView {
@@ -57,6 +58,11 @@ struct StatsView: View {
                     CategoryBreakdownView(breakdown: stats.categoryBreakdown)
                 }
 
+                // Mood
+                if stats.baselineSampleCount >= 1 {
+                    MoodTimelineView(stats: stats)
+                }
+
                 // When you write
                 HourPatternView(distribution: stats.hourDistribution)
 
@@ -64,6 +70,9 @@ struct StatsView: View {
                 EntryChartView(entries: entries)
             }
             .padding(32)
+        }
+        .task(id: entries.map(\.id).hashValue) {
+            sentimentScores = await Entry.computeSentiment(for: entries)
         }
     }
 }
@@ -139,8 +148,14 @@ struct ReflectStats {
     let skipRate: Double
     let categoryBreakdown: [(key: String, label: String, count: Int, pct: Double)]
     let hourDistribution: [Int]
+    let moodBaseline: Double?           // avg of first 30 scored entries
+    let baselineSampleCount: Int        // how many entries built the baseline (max 30)
+    let avgMoodDelta: Double?           // avg deviation from baseline (nil until baseline built)
+    let dailyMoodDelta: [(date: Date, delta: Double)]  // post-baseline daily deltas
+    let peakMoodHour: Int?
+    let moodTrendDirection: String?     // "upward", "downward", "stable", nil
 
-    init(entries: [Entry]) {
+    init(entries: [Entry], sentimentScores: [UUID: Double] = [:]) {
         let answered = entries.filter { !$0.skipped }
         let skipped  = entries.filter { $0.skipped }
 
@@ -182,7 +197,7 @@ struct ReflectStats {
         // Consistency: denominator is days since first entry, capped at 30
         let activeDays = Set(answered.map { cal.startOfDay(for: $0.date) })
         if let firstDay = activeDays.min() {
-            let daysSinceFirst = max(1, cal.dateComponents([.day], from: firstDay, to: today).day! + 1)
+            let daysSinceFirst = max(1, (cal.dateComponents([.day], from: firstDay, to: today).day ?? 0) + 1)
             let window = min(daysSinceFirst, 30)
             let windowDays = (0..<window).compactMap { cal.date(byAdding: .day, value: -$0, to: today) }
             consistencyLast30 = Double(windowDays.filter { activeDays.contains($0) }.count) / Double(window)
@@ -196,8 +211,8 @@ struct ReflectStats {
         let weekdays = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
         var dayCounts = Array(repeating: 0, count: 7)
         answered.forEach { dayCounts[cal.component(.weekday, from: $0.date) - 1] += 1 }
-        if let max = dayCounts.max(), max > 0 {
-            mostActiveDay = weekdays[dayCounts.firstIndex(of: max)!]
+        if let max = dayCounts.max(), max > 0, let idx = dayCounts.firstIndex(of: max) {
+            mostActiveDay = weekdays[idx]
         } else {
             mostActiveDay = nil
         }
@@ -220,6 +235,196 @@ struct ReflectStats {
         categoryBreakdown = catCounts
             .sorted { $0.value > $1.value }
             .map { k, v in (key: k, label: Category(rawValue: k)?.label ?? k, count: v, pct: total > 0 ? Double(v) / Double(total) : 0) }
+
+        // Sentiment (pre-computed off main thread, sorted chronologically)
+        let scored = answered
+            .compactMap { e -> (date: Date, score: Double)? in
+                guard let s = sentimentScores[e.id] else { return nil }
+                return (e.date, s)
+            }
+            .sorted { $0.date < $1.date }
+
+        let baselineEntries = Array(scored.prefix(30))
+        baselineSampleCount = baselineEntries.count
+
+        guard baselineEntries.count >= 10 else {
+            // Not enough data yet
+            moodBaseline = nil; avgMoodDelta = nil; dailyMoodDelta = []
+            peakMoodHour = nil; moodTrendDirection = nil
+            return
+        }
+
+        let baseline = baselineEntries.map(\.score).reduce(0,+) / Double(baselineEntries.count)
+        moodBaseline = baseline
+
+        // Only measure mood on entries after the baseline window
+        let postBaseline = scored.count > 30 ? Array(scored.dropFirst(30)) : []
+        guard !postBaseline.isEmpty else {
+            avgMoodDelta = nil; dailyMoodDelta = []; peakMoodHour = nil; moodTrendDirection = nil
+            return
+        }
+
+        let deltas = postBaseline.map { (date: $0.date, delta: $0.score - baseline) }
+        avgMoodDelta = deltas.map(\.delta).reduce(0,+) / Double(deltas.count)
+
+        // Daily average deltas
+        var byDay: [Date: [Double]] = [:]
+        deltas.forEach { byDay[cal.startOfDay(for: $0.date), default: []].append($0.delta) }
+        dailyMoodDelta = byDay
+            .map { (date: $0.key, delta: $0.value.reduce(0,+) / Double($0.value.count)) }
+            .sorted { $0.date < $1.date }
+            .suffix(14)
+
+        // Peak mood hour (from post-baseline only)
+        var hourDeltas: [Int: [Double]] = [:]
+        deltas.forEach { hourDeltas[cal.component(.hour, from: $0.date), default: []].append($0.delta) }
+        peakMoodHour = hourDeltas
+            .mapValues { $0.reduce(0,+) / Double($0.count) }
+            .max(by: { $0.value < $1.value })?.key
+
+        // Trend
+        let dailyVals = dailyMoodDelta.map(\.delta)
+        if dailyVals.count >= 4 {
+            let mid   = dailyVals.count / 2
+            let first = dailyVals.prefix(mid).reduce(0,+) / Double(mid)
+            let last  = dailyVals.suffix(mid).reduce(0,+) / Double(mid)
+            moodTrendDirection = last - first > 0.06 ? "upward" : last - first < -0.06 ? "downward" : "stable"
+        } else {
+            moodTrendDirection = nil
+        }
+    }
+}
+
+// MARK: - Mood Timeline
+
+struct MoodTimelineView: View {
+    let stats: ReflectStats
+    @Environment(\.colorScheme) var scheme
+
+    private func deltaLabel(_ d: Double) -> String {
+        if d >= 0.15  { return "above baseline" }
+        if d >= 0.05  { return "slightly above" }
+        if d >= -0.05 { return "at baseline" }
+        if d >= -0.15 { return "slightly below" }
+        return "below baseline"
+    }
+
+    private func deltaColor(_ d: Double) -> Color {
+        if d >= 0.1  { return Color(hex: "#5edb97") }
+        if d >= 0.0  { return Color(hex: "#60d4e8") }
+        if d >= -0.1 { return Color(hex: "#ffc840") }
+        return Color(hex: "#FFA6C9")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("mood over time")
+                    .font(RFont.body(13).weight(.semibold))
+                    .foregroundColor(RColor.text(scheme))
+                Spacer()
+                if let avg = stats.avgMoodDelta {
+                    Text(deltaLabel(avg))
+                        .font(RFont.mono(9))
+                        .foregroundColor(deltaColor(avg))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(deltaColor(avg).opacity(0.12)))
+                }
+            }
+
+            if stats.moodBaseline == nil {
+                // Still building baseline
+                let remaining = 10 - stats.baselineSampleCount
+                Text("building your baseline — \(max(0, remaining)) more answered \(remaining == 1 ? "entry" : "entries") needed")
+                    .font(RFont.body(12).italic())
+                    .foregroundColor(RColor.muted(scheme))
+            } else if stats.avgMoodDelta == nil {
+                Text("baseline established — keep reflecting to see your mood trend")
+                    .font(RFont.body(12).italic())
+                    .foregroundColor(RColor.muted(scheme))
+            } else {
+                // Insight line
+                if let trend = stats.moodTrendDirection, let hour = stats.peakMoodHour {
+                    let hourStr = hour == 0 ? "midnight" : hour == 12 ? "noon" : hour < 12 ? "\(hour)am" : "\(hour-12)pm"
+                    let trendStr = trend == "upward" ? "trending above your baseline lately"
+                                 : trend == "downward" ? "dipping below your baseline recently"
+                                 : "tracking close to your baseline"
+                    Text("\(trendStr) — you write most positively around \(hourStr)")
+                        .font(RFont.body(12).italic())
+                        .foregroundColor(RColor.muted(scheme))
+                }
+
+                // Line chart — zero line = personal baseline
+                if stats.dailyMoodDelta.count >= 2 {
+                    MoodLineChart(points: stats.dailyMoodDelta.map { (date: $0.date, score: $0.delta) },
+                                  moodColor: deltaColor)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(RColor.card(scheme))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(RColor.border(scheme), lineWidth: 1))
+        )
+    }
+}
+
+struct MoodLineChart: View {
+    let points: [(date: Date, score: Double)]
+    let moodColor: (Double) -> Color
+    @Environment(\.colorScheme) var scheme
+
+    private let h: CGFloat = 60
+
+    private func minS() -> Double { min(-0.1, points.map(\.score).min()! - 0.05) }
+    private func maxS() -> Double { max( 0.1, points.map(\.score).max()! + 0.05) }
+
+    private func xPos(_ i: Int, width: CGFloat) -> CGFloat {
+        CGFloat(i) / CGFloat(points.count - 1) * width
+    }
+    private func yPos(_ s: Double) -> CGFloat {
+        let range = maxS() - minS()
+        return h - CGFloat((s - minS()) / range) * h
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let zy = yPos(0)
+            ZStack {
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: zy))
+                    p.addLine(to: CGPoint(x: w, y: zy))
+                }
+                .stroke(RColor.border(scheme).opacity(0.4), style: StrokeStyle(lineWidth: 0.5, dash: [4]))
+
+                Path { p in
+                    p.move(to: CGPoint(x: xPos(0, width: w), y: zy))
+                    for i in points.indices { p.addLine(to: CGPoint(x: xPos(i, width: w), y: yPos(points[i].score))) }
+                    p.addLine(to: CGPoint(x: xPos(points.count - 1, width: w), y: zy))
+                    p.closeSubpath()
+                }
+                .fill(Color(hex: "#5edb97").opacity(0.08))
+
+                Path { p in
+                    p.move(to: CGPoint(x: xPos(0, width: w), y: yPos(points[0].score)))
+                    for i in 1..<points.count {
+                        p.addLine(to: CGPoint(x: xPos(i, width: w), y: yPos(points[i].score)))
+                    }
+                }
+                .stroke(Color(hex: "#5edb97").opacity(0.7), lineWidth: 1.5)
+
+                ForEach(points.indices, id: \.self) { i in
+                    Circle()
+                        .fill(moodColor(points[i].score))
+                        .frame(width: 5, height: 5)
+                        .position(x: xPos(i, width: w), y: yPos(points[i].score))
+                }
+            }
+        }
+        .frame(height: h)
     }
 }
 

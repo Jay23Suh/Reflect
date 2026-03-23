@@ -8,6 +8,7 @@ enum AbstractSlideType {
     case text(bg: Color, accent: Color, headline: String, subtext: String)
     case quote(bg: Color, accent: Color, quote: String, context: String)
     case wordCloud(bg: Color, words: [(word: String, rank: Int)])
+    case mood(score: Double, trend: String?)
     case closing(message: String)
 }
 
@@ -22,8 +23,9 @@ struct AbstractView: View {
     let entries: [Entry]
     var onClose: (() -> Void)? = nil
     @State private var current = 0
+    @State private var sentimentScores: [UUID: Double] = [:]
 
-    private var stats: ReflectStats { ReflectStats(entries: entries) }
+    private var stats: ReflectStats { ReflectStats(entries: entries, sentimentScores: sentimentScores) }
     private var slides: [AbstractSlide] { buildSlides() }
 
     var body: some View {
@@ -110,6 +112,9 @@ struct AbstractView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task(id: entries.map(\.id).hashValue) {
+            sentimentScores = await Entry.computeSentiment(for: entries)
+        }
         .onKeyPress(.space)      { advance(); return .handled }
         .onKeyPress(.rightArrow) { advance(); return .handled }
         .onKeyPress(.leftArrow)  { if current > 0 { withAnimation(.easeInOut(duration: 0.55)) { current -= 1 } }; return .handled }
@@ -219,6 +224,11 @@ struct AbstractView: View {
             )))
         }
 
+        // Mood (only after baseline + post-baseline data exists)
+        if let avg = stats.avgMoodDelta {
+            s.append(.init(type: .mood(score: avg, trend: stats.moodTrendDirection)))
+        }
+
         // Pull quote from longest entry
         if let longest = entries.filter({ !$0.skipped }).max(by: { $0.wordCount < $1.wordCount }),
            longest.wordCount > 10,
@@ -321,6 +331,8 @@ struct AbstractSlideView: View {
             case let .wordCloud(bg, words):
                 WordCloudSlideView(visible: visible, appeared: appeared,
                                    bg: bg, words: words)
+            case let .mood(score, trend):
+                MoodSlideView(visible: visible, appeared: appeared, score: score, trend: trend)
             case let .closing(message):
                 ClosingSlideView(visible: visible, appeared: appeared, message: message)
             }
@@ -571,6 +583,70 @@ struct WordCloudSlideView: View {
                         .opacity(appeared ? 1 : 0)
                         .animation(.easeOut(duration: 0.45).delay(0.1 + Double(i) * 0.11), value: appeared)
                 }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Mood Slide
+
+struct MoodSlideView: View {
+    let visible: Bool
+    let appeared: Bool
+    let score: Double
+    let trend: String?
+
+    private var accent: Color {
+        if score >= 0.2  { return Color(hex: "#5edb97") }
+        if score >= 0.0  { return Color(hex: "#60d4e8") }
+        if score >= -0.2 { return Color(hex: "#ffc840") }
+        return Color(hex: "#FFA6C9")
+    }
+
+    // score here is delta from personal baseline
+    private var moodWord: String {
+        if score >= 0.15  { return "brighter" }
+        if score >= 0.05  { return "steady" }
+        if score >= -0.05 { return "grounded" }
+        if score >= -0.15 { return "heavier" }
+        return "darker"
+    }
+
+    private var trendLine: String {
+        switch trend {
+        case "upward":   return "lifting above your baseline lately."
+        case "downward": return "dipping below your usual lately."
+        default:         return "close to your personal baseline."
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Color(hex: "#08100e").ignoresSafeArea()
+            VStack(spacing: 0) {
+                Text("your mood")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .tracking(5).textCase(.uppercase)
+                    .foregroundColor(accent.opacity(0.4))
+                    .padding(.bottom, 28)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.4).delay(0.1), value: appeared)
+
+                Text(moodWord)
+                    .font(RFont.header(88))
+                    .foregroundColor(accent)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 16)
+                    .animation(.easeOut(duration: 0.6).delay(0.2), value: appeared)
+
+                Text(trendLine)
+                    .font(RFont.header(18, italic: true))
+                    .foregroundColor(Color.white.opacity(0.45))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 28)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.5).delay(0.5), value: appeared)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

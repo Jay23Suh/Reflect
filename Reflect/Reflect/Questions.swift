@@ -82,7 +82,7 @@ struct Questions {
     ]
 
     static func pick() -> (String, String) {
-        let item = bank.randomElement()!
+        guard let item = bank.randomElement() else { return ("how are you feeling right now?", "emotions") }
         return (item.0, item.1.rawValue)
     }
 }

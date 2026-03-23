@@ -96,11 +96,13 @@ struct JournalPopupView: View {
         guard !trimmed.isEmpty else { return }
         isSaving = true
         try? await supabase.saveEntry(question: popupState.question, category: popupState.category, answer: trimmed)
+        NotificationCenter.default.post(name: .didJournal, object: nil)
         onDismiss()
     }
 
     private func handleSkip() async {
         try? await supabase.saveSkip(question: popupState.question, category: popupState.category)
+        NotificationCenter.default.post(name: .didJournal, object: nil)
         onDismiss()
     }
 }

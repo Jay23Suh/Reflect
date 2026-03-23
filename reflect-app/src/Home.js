@@ -188,6 +188,74 @@ const CATEGORY_LABELS = {
   grounding:  'Present Moment',
 }
 
+function formatHour(h) {
+  if (h === 0) return '12am'
+  if (h === 12) return '12pm'
+  return h < 12 ? `${h}am` : `${h - 12}pm`
+}
+
+const CATEGORY_COLORS = {
+  gratitude:  '#FFA6C9',
+  compassion: '#C39BD3',
+  values:     '#76D7C4',
+  emotions:   '#F7971D',
+  grounding:  '#005499',
+}
+
+function CategoryBreakdown({ breakdown }) {
+  return (
+    <div className="section-card">
+      <div className="section-card-title">by category</div>
+      <div className="cat-list">
+        {breakdown.map(({ key, label, pct }) => (
+          <div className="cat-row" key={key}>
+            <span className="cat-label">{label}</span>
+            <div className="cat-bar-bg">
+              <div className="cat-bar-fill" style={{ width: `${pct * 100}%`, background: CATEGORY_COLORS[key] || 'var(--lavender)' }} />
+            </div>
+            <span className="cat-pct">{Math.round(pct * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HourPatternChart({ hourDist }) {
+  const maxCount = Math.max(...hourDist, 1)
+  const timeColor = h => {
+    if (h >= 5  && h < 9)  return '#F7971D'
+    if (h >= 9  && h < 13) return '#C39BD3'
+    if (h >= 13 && h < 18) return '#76D7C4'
+    if (h >= 18 && h < 22) return '#FFA6C9'
+    return '#76D7C4'
+  }
+  return (
+    <div className="section-card">
+      <div className="section-card-title">when you write</div>
+      <div className="hour-bars">
+        {hourDist.map((count, h) => (
+          <div className="hour-bar-col" key={h}>
+            <div
+              className="hour-bar"
+              style={{
+                height: `${Math.max(2, (count / maxCount) * 48)}px`,
+                background: count > 0 ? timeColor(h) : 'var(--card-border)',
+                opacity: count > 0 ? 0.8 : 0.3,
+              }}
+            />
+            {h % 6 === 0 && (
+              <div className="hour-label">
+                {h === 0 ? '12a' : h === 12 ? '12p' : `${h < 12 ? h : h - 12}${h < 12 ? 'a' : 'p'}`}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function HistoryView({ entries }) {
   const [activeCategory, setActiveCategory] = useState('all')
 
@@ -240,8 +308,14 @@ export default function Home({ session }) {
   const [questionCategory, setQuestionCategory] = useState('')
   const [answer, setAnswer] = useState('')
   const [saving, setSaving] = useState(false)
-  const [stats, setStats] = useState({ total: 0, streak: 0, thisWeek: 0, totalSkips: 0, skipNudge: false })
-  const [lastPopup, setLastPopup] = useState(null)
+  const [stats, setStats] = useState({
+    total: 0, totalWords: 0, avgWords: 0,
+    streak: 0, longestStreak: 0,
+    consistency: 0, consistencyWindow: 0,
+    thisWeek: 0, totalSkips: 0, skipRate: 0, skipNudge: false,
+    mostActiveDay: null, peakHour: null,
+    categoryBreakdown: [], hourDist: Array(24).fill(0),
+  })
   const [hoursLeft, setHoursLeft] = useState(null)
   const [showAbstract, setShowAbstract] = useState(false)
 
@@ -268,7 +342,6 @@ export default function Home({ session }) {
 
     if (data?.last_popup_shown) {
       const last = new Date(data.last_popup_shown)
-      setLastPopup(last)
       const hoursPassed = (Date.now() - last.getTime()) / 3600000
       if (hoursPassed >= HOURS_BETWEEN_POPUPS) {
         triggerPopup()
@@ -329,33 +402,75 @@ export default function Home({ session }) {
   }
 
   function computeStats(data) {
-    const answered = data.filter(e => !e.skipped)
+    const answered = data.filter(e => !e.skipped && e.answer?.trim())
     const total = answered.length
-    const now = new Date()
-    const oneWeekAgo = new Date(now - 7 * 24 * 3600000)
-    const thisWeek = answered.filter(e => new Date(e.created_at) > oneWeekAgo).length
+    const totalWords = answered.reduce((sum, e) => sum + e.answer.trim().split(/\s+/).filter(Boolean).length, 0)
+    const avgWords = total > 0 ? Math.round(totalWords / total) : 0
 
-    // Streak: consecutive days with at least one answered entry
-    const days = [...new Set(answered.map(e => new Date(e.created_at).toDateString()))]
+    // Current streak
+    const daySet = new Set(answered.map(e => new Date(e.created_at).toDateString()))
     let streak = 0
-    let check = new Date()
-    check.setHours(0, 0, 0, 0)
+    const checkDate = new Date(); checkDate.setHours(0, 0, 0, 0)
     for (let i = 0; i < 365; i++) {
-      if (days.includes(check.toDateString())) {
-        streak++
-        check.setDate(check.getDate() - 1)
-      } else break
+      if (daySet.has(checkDate.toDateString())) { streak++; checkDate.setDate(checkDate.getDate() - 1) }
+      else break
     }
 
-    // Skip nudge: more skips than answers today
-    const todayStr = new Date().toDateString()
-    const todayAll = data.filter(e => new Date(e.created_at).toDateString() === todayStr)
-    const todaySkips = todayAll.filter(e => e.skipped).length
-    const todayAnswered = todayAll.filter(e => !e.skipped).length
-    const skipNudge = todaySkips > 0 && todaySkips > todayAnswered
+    // Longest streak
+    const allDays = [...daySet].map(d => new Date(d)).sort((a, b) => a - b)
+    let longestStreak = 0, cur = 0
+    for (let i = 0; i < allDays.length; i++) {
+      if (i === 0) { cur = 1 }
+      else if ((allDays[i] - allDays[i-1]) / 86400000 === 1) { cur++ }
+      else { cur = 1 }
+      longestStreak = Math.max(longestStreak, cur)
+    }
+
+    // Consistency (days active / window capped at 30)
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const firstDay = allDays.length > 0 ? allDays[0] : today
+    const daysSinceFirst = Math.max(1, Math.round((today - firstDay) / 86400000) + 1)
+    const window = Math.min(daysSinceFirst, 30)
+    let activeDayCount = 0
+    for (let i = 0; i < window; i++) {
+      const d = new Date(today); d.setDate(today.getDate() - i)
+      if (daySet.has(d.toDateString())) activeDayCount++
+    }
+    const consistency = window > 0 ? Math.round(activeDayCount / window * 100) : 0
+
+    // Most active day of week
+    const dayCounts = Array(7).fill(0)
+    answered.forEach(e => { dayCounts[new Date(e.created_at).getDay()]++ })
+    const maxDayCount = Math.max(...dayCounts)
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const mostActiveDay = maxDayCount > 0 ? dayNames[dayCounts.indexOf(maxDayCount)] : null
+
+    // Hour distribution
+    const hourDist = Array(24).fill(0)
+    answered.forEach(e => { hourDist[new Date(e.created_at).getHours()]++ })
+    const maxHourCount = Math.max(...hourDist)
+    const peakHour = maxHourCount > 0 ? hourDist.indexOf(maxHourCount) : null
+
+    // Category breakdown
+    const catCounts = {}
+    answered.forEach(e => { if (e.category) catCounts[e.category] = (catCounts[e.category] || 0) + 1 })
+    const catTotal = Object.values(catCounts).reduce((a, b) => a + b, 0)
+    const categoryBreakdown = Object.entries(catCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, count]) => ({ key, label: CATEGORY_LABELS[key] || key, count, pct: catTotal > 0 ? count / catTotal : 0 }))
 
     const totalSkips = data.filter(e => e.skipped).length
-    setStats({ total, streak, thisWeek, totalSkips, skipNudge })
+    const totalPrompts = data.length
+    const skipRate = totalPrompts > 0 ? Math.round(totalSkips / totalPrompts * 100) : 0
+    const thisWeek = answered.filter(e => new Date(e.created_at) > new Date(Date.now() - 7 * 24 * 3600000)).length
+    const skipNudge = skipRate > 50 && totalPrompts > 3
+
+    setStats({
+      total, totalWords, avgWords, streak, longestStreak,
+      consistency, consistencyWindow: window,
+      thisWeek, totalSkips, skipRate, skipNudge,
+      mostActiveDay, peakHour, categoryBreakdown, hourDist,
+    })
   }
 
   const handleSubmit = async () => {
@@ -483,36 +598,72 @@ export default function Home({ session }) {
       {view === 'stats' && (
         <div className="page">
           <h1 className="page-title">your stats</h1>
-          <div className="stats-grid">
-            <div className="stats-card big">
-              <div className="stats-num">{stats.streak}</div>
-              <div className="stats-label">day streak 🔥</div>
+
+          {stats.skipNudge && (
+            <div className="skip-nudge" style={{ marginBottom: 24 }}>
+              ✦ you've been skipping a lot lately — make some time for yourself to reflect
             </div>
-            <div className="stats-card">
+          )}
+
+          {/* Big three */}
+          <div className="stats-grid stats-grid--3" style={{ marginBottom: 12 }}>
+            <div className="stats-card stats-card--accent">
               <div className="stats-num">{stats.total}</div>
-              <div className="stats-label">total entries</div>
+              <div className="stats-label">entries</div>
             </div>
-            <div className="stats-card">
-              <div className="stats-num">{stats.thisWeek}</div>
-              <div className="stats-label">this week</div>
+            <div className="stats-card stats-card--accent">
+              <div className="stats-num">{stats.totalWords}</div>
+              <div className="stats-label">words written</div>
             </div>
-            <div className="stats-card">
-              <div className="stats-num">{entries.filter(e => !e.skipped).length > 0 ? Math.round(entries.filter(e => !e.skipped).reduce((a, e) => a + (e.answer || '').split(' ').length, 0) / entries.filter(e => !e.skipped).length) : 0}</div>
-              <div className="stats-label">avg words / entry</div>
-            </div>
-            <div className="stats-card">
+            <div className="stats-card stats-card--accent">
               <div className="stats-num">{stats.totalSkips}</div>
               <div className="stats-label">skipped</div>
             </div>
           </div>
 
-          <EntryChart entries={entries} />
-
-          {lastPopup && (
-            <div className="last-popup-info">
-              last reflection: {lastPopup.toLocaleString()}
+          {/* Secondary stats */}
+          <div className="stats-grid stats-grid--4" style={{ marginBottom: 12 }}>
+            <div className="stats-card">
+              <div className="stats-num stats-num--sm">{stats.avgWords || '—'}</div>
+              <div className="stats-label">avg words / entry</div>
             </div>
+            <div className="stats-card">
+              <div className="stats-num stats-num--sm">{stats.streak > 0 ? `${stats.streak}d` : '—'}</div>
+              <div className="stats-label">current streak</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-num stats-num--sm">{stats.longestStreak > 0 ? `${stats.longestStreak}d` : '—'}</div>
+              <div className="stats-label">longest streak</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-num stats-num--sm">{stats.skipRate}%</div>
+              <div className="stats-label">skip rate</div>
+            </div>
+          </div>
+
+          {/* Consistency row */}
+          <div className="stats-grid stats-grid--3" style={{ marginBottom: 24 }}>
+            <div className="stats-card">
+              <div className="stats-num stats-num--sm">{stats.consistency}%</div>
+              <div className="stats-label">{stats.consistencyWindow}d consistency</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-num stats-num--sm">{stats.mostActiveDay || '—'}</div>
+              <div className="stats-label">most active day</div>
+            </div>
+            <div className="stats-card">
+              <div className="stats-num stats-num--sm">{stats.peakHour != null ? formatHour(stats.peakHour) : '—'}</div>
+              <div className="stats-label">peak hour</div>
+            </div>
+          </div>
+
+          {stats.categoryBreakdown.length > 0 && (
+            <CategoryBreakdown breakdown={stats.categoryBreakdown} />
           )}
+
+          <HourPatternChart hourDist={stats.hourDist} />
+
+          <EntryChart entries={entries} />
         </div>
       )}
     </div>

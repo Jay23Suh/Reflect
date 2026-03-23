@@ -44,6 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         nc.addObserver(forName: .showMainWindow,  object: nil, queue: .main) { [weak self] _ in self?.showMain() }
         nc.addObserver(forName: .showSetupWindow, object: nil, queue: .main) { [weak self] _ in self?.showSetup() }
+        nc.addObserver(forName: .didJournal,      object: nil, queue: .main) { [weak self] _ in self?.activeSeconds = 0 }
 
         if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
             showOnboarding()
