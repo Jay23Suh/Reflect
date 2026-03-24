@@ -12,6 +12,7 @@ class SupabaseManager: ObservableObject {
     )
 
     @Published var user: User?
+    @Published var sessionRestored = false
 
     var userName: String? {
         (user?.userMetadata["name"]?.value as? String)
@@ -31,6 +32,7 @@ class SupabaseManager: ObservableObject {
         } catch {
             user = nil
         }
+        sessionRestored = true
     }
 
     func signIn(email: String, password: String) async throws {

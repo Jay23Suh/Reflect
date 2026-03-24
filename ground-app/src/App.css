@@ -35,6 +35,40 @@ body {
   background-attachment: fixed;
 }
 
+/* ── Intro ───────────────────────────────────────────────────────────────── */
+.intro-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: #130f08;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.6s ease;
+}
+.intro-overlay.intro-visible { opacity: 1; }
+.intro-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 24px; }
+.intro-icon { width: 48px; height: 48px; color: #f0c060; opacity: 0; margin-bottom: 40px; transition: opacity 0.6s ease 0.2s; }
+.intro-visible .intro-icon { opacity: 1; }
+.intro-line {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(22px, 3.5vw, 36px);
+  font-weight: 400; font-style: italic;
+  color: #f0c060; line-height: 1.7;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.intro-visible .intro-line--1 { opacity: 1; transform: none; transition-delay: 0.4s; }
+.intro-visible .intro-line--2 { opacity: 1; transform: none; transition-delay: 0.8s; }
+.intro-visible .intro-line--3 { opacity: 1; transform: none; transition-delay: 1.2s; }
+.intro-visible .intro-line--4 { opacity: 1; transform: none; transition-delay: 1.6s; }
+.intro-btn {
+  margin-top: 52px; padding: 12px 36px;
+  background: transparent; border: 1px solid rgba(240, 192, 96, 0.4);
+  border-radius: 40px; color: #f0c060;
+  font-family: 'Quicksand', sans-serif; font-size: 14px; font-weight: 500;
+  letter-spacing: 0.08em; cursor: pointer;
+  opacity: 0; transition: opacity 0.6s ease 2.2s, border-color 0.2s, background 0.2s;
+}
+.intro-visible .intro-btn { opacity: 1; }
+.intro-btn:hover { background: rgba(240, 192, 96, 0.08); border-color: rgba(240, 192, 96, 0.7); }
+
 .loading-screen { display: flex; align-items: center; justify-content: center; height: 100vh; }
 .loading-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--orange); animation: pulse 1s infinite; }
 @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } }

@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import UserNotifications
 import CoreGraphics
+import Combine
 
 class KeyableWindow: NSWindow {
     override var canBecomeKey: Bool  { true }
@@ -26,6 +27,7 @@ class KeyableHideOnCloseWindow: KeyableWindow, NSWindowDelegate {
 
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var checkTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
     private var activeSeconds: TimeInterval = 0
     private let targetActiveSeconds: TimeInterval = 2 * 60 * 60  // 2 hours of use
     private let idleThreshold: TimeInterval = 5 * 60             // 5 min idle = paused
@@ -48,9 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         nc.addObserver(forName: .showSetupWindow, object: nil, queue: .main) { [weak self] _ in self?.showSetup() }
         nc.addObserver(forName: .didJournal,      object: nil, queue: .main) { [weak self] _ in self?.activeSeconds = 0 }
 
-        if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
-            showOnboarding()
-        }
+        showOnboarding()
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -141,7 +141,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func showMain() {
-        if let w = mainWindow { w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
+        if let w = mainWindow {
+            w.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            NotificationCenter.default.post(name: .showIntroOverlay, object: nil)
+            return
+        }
         let w = HideOnCloseWindow(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
             styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
@@ -157,6 +162,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         mainWindow = w
+        NotificationCenter.default.post(name: .showIntroOverlay, object: nil)
     }
 
     func showSetup() {

@@ -6,6 +6,8 @@ enum Category: String, CaseIterable {
     case values       = "values"
     case emotions     = "emotions"
     case grounding    = "grounding"
+    case horizon      = "horizon"
+    case community    = "community"
 
     var label: String {
         switch self {
@@ -14,6 +16,8 @@ enum Category: String, CaseIterable {
         case .values:     return "values & meaning"
         case .emotions:   return "emotions & inner life"
         case .grounding:  return "grounding in the present"
+        case .horizon:    return "looking ahead"
+        case .community:  return "community & connection"
         }
     }
 }
@@ -67,6 +71,23 @@ struct Questions {
         ("What do you wish you could say out loud that you're holding inside?", .emotions),
         ("What's one emotion you can allow, just for a few breaths?", .emotions),
         ("What helped you regulate or soothe yourself today, even a little?", .emotions),
+
+        // Horizon
+        ("What does a perfectly balanced, ordinary Tuesday look like for you three years down the line?", .horizon),
+        ("What mindsets, habits, or fears do you want to leave behind?", .horizon),
+        ("If you were a guest on your own podcast five years from now, what would be the title of your episode, and what would be the most surprising pivot in your story?", .horizon),
+        ("When looking at the unpredictable or seemingly chaotic parts of your future, where can you find the underlying patterns or peace?", .horizon),
+        ("What will be your new anchor for daily discipline and routine?", .horizon),
+        ("What is a deeply held assumption about your ideal path that you are willing to let go of to make room for unexpected opportunities?", .horizon),
+        ("When you succeed, who is sitting at the table celebrating with you?", .horizon),
+
+        // Community
+        ("How do you want to define \"community\" in your life?", .community),
+        ("What is your favorite moment of teamwork and connection — what made it feel that way?", .community),
+        ("Who is your hero, or someone you look up to, and what quality in them do you want to cultivate in yourself?", .community),
+        ("What is an expectation you hold for the people around you, and do you hold yourself to that same standard?", .community),
+        ("Who in your life consistently asks you the kinds of questions that make you pause and rethink your assumptions?", .community),
+        ("If you were to host a dinner party, what is the feeling or atmosphere you want in that room?", .community),
 
         // Grounding
         ("What sensations can you feel in your body right now?", .grounding),

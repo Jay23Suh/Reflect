@@ -60,6 +60,21 @@ const QUESTIONS = {
     "What's a small action you could take right now to feel 5% more settled?",
     "If you named this moment as a weather pattern, what would it be?",
   ],
+  horizon: [
+    "What does a perfectly balanced, ordinary Tuesday look like for you three years down the line?",
+    "What mindsets, habits, or fears do you want to leave behind?",
+    "If you were a guest on your own podcast five years from now, what would be the title of your episode, and what would be the most surprising pivot in your story?",
+    "When looking at the unpredictable or seemingly chaotic parts of your future, where can you find the underlying patterns or peace?",
+    "What will be your new anchor for daily discipline and routine?",
+    "What is a deeply held assumption about your ideal path that you are willing to let go of to make room for unexpected opportunities?",
+    "When you succeed, who is sitting at the table celebrating with you?",
+  ],
+  community: [
+    "How do you want to define \"community\" in your life?",
+    "What is your favorite moment of teamwork and connection — what made it feel that way?",
+    "Who is your hero, or someone you look up to, and what quality in them do you want to cultivate in yourself?",
+    "What is an expectation you hold for the people around you, and do you hold yourself to that same standard?",
+  ],
 }
 
 function pickQuestion() {
@@ -187,6 +202,8 @@ const CATEGORY_LABELS = {
   values:     'Values & Meaning',
   emotions:   'Emotions',
   grounding:  'Present Moment',
+  horizon:    'Looking Ahead',
+  community:  'Community & Connection',
 }
 
 function formatHour(h) {

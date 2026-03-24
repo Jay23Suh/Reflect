@@ -6,11 +6,6 @@ ground-app/.env.local
 entries.json
 prompt.log
 
-# Python
-venv/
-__pycache__/
-*.pyc
-
 # Node
 node_modules/
 ground-app/node_modules/
@@ -21,7 +16,6 @@ ground-app/build/
 wrapped/dist/
 build/
 dist/
-*.spec
 
 # OS
 .DS_Store

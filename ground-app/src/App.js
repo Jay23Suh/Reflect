@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { supabase, isPasswordRecovery } from './supabase'
 import Auth from './Auth'
 import Home from './Home'
+import Intro from './Intro'
 import ResetPassword from './ResetPassword'
 import './App.css'
 
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showIntro, setShowIntro] = useState(() => !localStorage.getItem('ground_intro_seen'))
   // Seed from URL hash — captured before Supabase clears it
   const [isRecovery, setIsRecovery] = useState(isPasswordRecovery)
 
@@ -43,5 +45,6 @@ export default function App() {
   )
 
   if (isRecovery) return <ResetPassword onDone={() => setIsRecovery(false)} />
+  if (session && showIntro) return <Intro onDone={() => setShowIntro(false)} />
   return session ? <Home session={session} /> : <Auth />
 }
