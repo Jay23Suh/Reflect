@@ -1,6 +1,6 @@
 # Secrets
-.reflect_config
-reflect-app/.env.local
+.ground_config
+ground-app/.env.local
 
 # Local data
 entries.json
@@ -13,11 +13,11 @@ __pycache__/
 
 # Node
 node_modules/
-reflect-app/node_modules/
+ground-app/node_modules/
 wrapped/node_modules/
 
 # Build
-reflect-app/build/
+ground-app/build/
 wrapped/dist/
 build/
 dist/

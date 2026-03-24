@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-reflect — desktop journaling popup
+ground — desktop journaling popup
 First run: shows setup/login screen + installs LaunchAgent
 Subsequent runs: shows journal prompt
 """
@@ -24,9 +24,9 @@ except ImportError:
 SUPABASE_URL  = "https://opilhmterqutsdgdasjz.supabase.co"
 SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9waWxobXRlcnF1dHNkZ2Rhc2p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNjM4OTUsImV4cCI6MjA4ODkzOTg5NX0.yC2ajoHQyo3gCEDXgDenxOj5juwbbxFqK1R78s55JTI"
 
-CONFIG_FILE  = os.path.expanduser("~/.reflect_config")
-JOURNAL_FILE = os.path.expanduser("~/.reflect_entries.json")
-PLIST_PATH   = os.path.expanduser("~/Library/LaunchAgents/com.reflect.prompt.plist")
+CONFIG_FILE  = os.path.expanduser("~/.ground_config")
+JOURNAL_FILE = os.path.expanduser("~/.ground_entries.json")
+PLIST_PATH   = os.path.expanduser("~/Library/LaunchAgents/com.ground.prompt.plist")
 
 # ── Colors — (light, dark) tuples matching the web app palette ────────────────
 # Light: cream base, Deep Mind Blue text, Pink/Orange accents
@@ -172,16 +172,16 @@ def install_launch_agent():
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.reflect.prompt</string>
+  <string>com.ground.prompt</string>
   <key>ProgramArguments</key>{program_args}
   <key>StartInterval</key>
   <integer>7200</integer>
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
-  <string>{os.path.expanduser("~/.reflect.log")}</string>
+  <string>{os.path.expanduser("~/.ground.log")}</string>
   <key>StandardErrorPath</key>
-  <string>{os.path.expanduser("~/.reflect.log")}</string>
+  <string>{os.path.expanduser("~/.ground.log")}</string>
 </dict>
 </plist>"""
 
@@ -239,7 +239,7 @@ def push_to_supabase(client, user_id, question, category, answer, submitted_at):
             on_conflict="user_id",
         ).execute()
     except Exception as e:
-        print(f"[reflect] supabase error: {e}")
+        print(f"[ground] supabase error: {e}")
 
 def push_skip_to_supabase(client, user_id, question, category, now):
     try:
@@ -254,7 +254,7 @@ def push_skip_to_supabase(client, user_id, question, category, now):
             on_conflict="user_id",
         ).execute()
     except Exception as e:
-        print(f"[reflect] supabase skip error: {e}")
+        print(f"[ground] supabase skip error: {e}")
 
 
 # ── Setup window ──────────────────────────────────────────────────────────────
@@ -262,7 +262,7 @@ def push_skip_to_supabase(client, user_id, question, category, now):
 def show_setup():
     ctk.set_appearance_mode("system")
     root = ctk.CTk()
-    root.title("reflect — setup")
+    root.title("ground — setup")
     root.configure(fg_color=BG)
     root.resizable(False, False)
 
@@ -280,7 +280,7 @@ def show_setup():
     ctk.CTkLabel(card, text="✦", text_color=PINK,
                  font=ctk.CTkFont(family=FONT_HEADER, size=28),
                  fg_color="transparent").pack(pady=(32, 0))
-    ctk.CTkLabel(card, text="reflect", text_color=TEXT,
+    ctk.CTkLabel(card, text="ground", text_color=TEXT,
                  font=ctk.CTkFont(family=FONT_HEADER, size=28),
                  fg_color="transparent").pack(pady=(2, 0))
     ctk.CTkLabel(card, text="your daily journaling companion",
@@ -392,7 +392,7 @@ def show_success(root, card):
                  font=ctk.CTkFont(family=FONT_HEADER, size=24),
                  fg_color="transparent").pack(pady=(12, 0))
     ctk.CTkLabel(card,
-                 text="reflect will prompt you every 2 hours.\nyour first prompt is coming up.",
+                 text="ground will prompt you every 2 hours.\nyour first prompt is coming up.",
                  text_color=TEXT_MUTED,
                  font=ctk.CTkFont(family=FONT_BODY, size=13),
                  justify="center", fg_color="transparent").pack(pady=(10, 0))
@@ -441,7 +441,7 @@ def show_prompt():
     top_row = ctk.CTkFrame(card, fg_color="transparent")
     top_row.pack(fill="x", padx=28, pady=(22, 0))
 
-    ctk.CTkLabel(top_row, text="✦ reflect", text_color=PINK,
+    ctk.CTkLabel(top_row, text="✦ ground", text_color=PINK,
                  font=ctk.CTkFont(family=FONT_HEADER, size=13),
                  fg_color="transparent").pack(side="left")
 
