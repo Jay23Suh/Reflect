@@ -96,7 +96,6 @@ struct Questions {
         ("What's one place in your body that feels okay or neutral?", .grounding),
         ("What's a small detail around you that you hadn't noticed before?", .grounding),
         ("What tells you that you are safe enough in this moment?", .grounding),
-        ("How does your body feel when you gently unclench your jaw and shoulders?", .grounding),
         ("What's one thing you can let go of, just for the next minute?", .grounding),
         ("What's a small action you could take right now to feel 5% more settled?", .grounding),
         ("If you named this moment as a weather pattern, what would it be?", .grounding),

@@ -93,6 +93,7 @@ struct JournalPopupView: View {
         .onExitCommand(perform: onDismiss)
         .onChange(of: popupState.question) { _, _ in
             answer = ""
+            isSaving = false
             focused = true
         }
         .onAppear { focused = true }

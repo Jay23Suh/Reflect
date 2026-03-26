@@ -11,7 +11,7 @@ struct MainWindowView: View {
     @State private var tab: GroundTab = .home
     @State private var entries: [Entry] = []
     @State private var loading = true
-    @State private var showIntro = true
+    @AppStorage("groundShowIntro") private var showIntro = true
 
     private var answeredEntries: [Entry] { entries.filter { !$0.skipped } }
 
@@ -99,9 +99,6 @@ struct MainWindowView: View {
         .task { await loadEntries() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await loadEntries() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .showIntroOverlay)) { _ in
-            showIntro = true
         }
     }
 

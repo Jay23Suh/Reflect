@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     private var checkTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private var activeSeconds: TimeInterval = 0
-    private let targetActiveSeconds: TimeInterval = 2 * 60 * 60  // 2 hours of use
+    private let targetActiveSeconds: TimeInterval = 100 * 60  // 100 minutes of active use
     private let idleThreshold: TimeInterval = 5 * 60             // 5 min idle = paused
     private var popupWindow:       KeyableHideOnCloseWindow?
     private var mainWindow:        HideOnCloseWindow?
@@ -141,10 +141,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func showMain() {
+        UserDefaults.standard.set(true, forKey: "groundShowIntro")
         if let w = mainWindow {
             w.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
-            NotificationCenter.default.post(name: .showIntroOverlay, object: nil)
             return
         }
         let w = HideOnCloseWindow(
@@ -162,7 +162,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         mainWindow = w
-        NotificationCenter.default.post(name: .showIntroOverlay, object: nil)
     }
 
     func showSetup() {
