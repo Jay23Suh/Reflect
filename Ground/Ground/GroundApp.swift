@@ -16,7 +16,9 @@ struct GroundApp: App {
         } label: {
             Image("GroundIcon")
                 .resizable()
+                .renderingMode(.template)
                 .frame(width: 16, height: 16)
+                .scaleEffect(0.5)
         }
         .menuBarExtraStyle(.menu)
     }

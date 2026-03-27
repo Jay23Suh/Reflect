@@ -80,75 +80,10 @@ struct RFont {
 }
 
 // MARK: - Gradient Background
-// MARK: - Particle Field
-
-private struct Particle: Identifiable {
-    let id = UUID()
-    let x: CGFloat        // 0–1 normalized
-    let startY: CGFloat   // 0–1 normalized
-    let size: CGFloat
-    let duration: Double
-    let delay: Double
-    let opacity: Double
-}
-
-struct ParticleField: View {
-    @Environment(\.colorScheme) var scheme
-    private let particles: [Particle] = (0..<80).map { _ in
-        Particle(
-            x:        CGFloat.random(in: 0...1),
-            startY:   CGFloat.random(in: 0...1),
-            size:     CGFloat.random(in: 2.0...5.0),
-            duration: Double.random(in: 8...20),
-            delay:    Double.random(in: 0...10),
-            opacity:  Double.random(in: 0.3...0.75)
-        )
-    }
-
-    var body: some View {
-        GeometryReader { geo in
-            ForEach(particles) { p in
-                ParticleDot(particle: p, size: geo.size, dark: scheme == .dark)
-            }
-        }
-    }
-}
-
-private struct ParticleDot: View {
-    let particle: Particle
-    let size: CGSize
-    let dark: Bool
-    @State private var drifted = false
-
-    var body: some View {
-        Circle()
-            .fill(Color.white.opacity(particle.opacity))
-            .frame(width: particle.size, height: particle.size)
-            .position(
-                x: particle.x * size.width,
-                y: drifted
-                    ? (particle.startY * size.height) - 60
-                    : (particle.startY * size.height) + 20
-            )
-            .opacity(drifted ? 0 : particle.opacity)
-            .onAppear {
-                withAnimation(
-                    .easeInOut(duration: particle.duration)
-                    .repeatForever(autoreverses: false)
-                    .delay(particle.delay)
-                ) { drifted = true }
-            }
-    }
-}
-
 // MARK: - Background
 
 struct GroundBackground: View {
     @Environment(\.colorScheme) var scheme
-    @State private var p1 = false
-    @State private var p2 = false
-    @State private var p3 = false
-    @State private var p4 = false
 
     var body: some View {
         ZStack {
@@ -158,43 +93,36 @@ struct GroundBackground: View {
                 ZStack {
                     if scheme == .dark {
                         RadialGradient(colors: [Color.rPink.opacity(0.45), .clear],
-                                       center: UnitPoint(x: p1 ? 0.25 : 0.10, y: p1 ? 0.22 : 0.12),
+                                       center: UnitPoint(x: 0.15, y: 0.15),
                                        startRadius: 0, endRadius: w * 0.5)
                         RadialGradient(colors: [Color.rMint.opacity(0.38), .clear],
-                                       center: UnitPoint(x: p2 ? 0.78 : 0.88, y: p2 ? 0.18 : 0.06),
+                                       center: UnitPoint(x: 0.85, y: 0.1),
                                        startRadius: 0, endRadius: w * 0.45)
                         RadialGradient(colors: [Color.rLavender.opacity(0.35), .clear],
-                                       center: UnitPoint(x: p3 ? 0.55 : 0.68, y: p3 ? 0.72 : 0.84),
+                                       center: UnitPoint(x: 0.65, y: 0.8),
                                        startRadius: 0, endRadius: w * 0.5)
                         RadialGradient(colors: [Color.rBlue.opacity(0.25), .clear],
-                                       center: UnitPoint(x: p4 ? 0.42 : 0.55, y: p4 ? 0.42 : 0.55),
+                                       center: UnitPoint(x: 0.5, y: 0.5),
                                        startRadius: 0, endRadius: w * 0.6)
                     } else {
-                        RadialGradient(colors: [Color.rPink.opacity(0.55), .clear],
-                                       center: UnitPoint(x: p1 ? 0.25 : 0.10, y: p1 ? 0.22 : 0.12),
+                        RadialGradient(colors: [Color.rPink.opacity(0.65), .clear],
+                                       center: UnitPoint(x: 0.15, y: 0.15),
                                        startRadius: 0, endRadius: w * 0.55)
-                        RadialGradient(colors: [Color.rMint.opacity(0.45), .clear],
-                                       center: UnitPoint(x: p2 ? 0.78 : 0.88, y: p2 ? 0.18 : 0.06),
+                        RadialGradient(colors: [Color.rMint.opacity(0.5), .clear],
+                                       center: UnitPoint(x: 0.85, y: 0.1),
                                        startRadius: 0, endRadius: w * 0.5)
-                        RadialGradient(colors: [Color.rLavender.opacity(0.40), .clear],
-                                       center: UnitPoint(x: p3 ? 0.60 : 0.72, y: p3 ? 0.78 : 0.88),
+                        RadialGradient(colors: [Color.rLavender.opacity(0.45), .clear],
+                                       center: UnitPoint(x: 0.7, y: 0.85),
                                        startRadius: 0, endRadius: w * 0.55)
-                        RadialGradient(colors: [Color.rPink.opacity(0.35), .clear],
-                                       center: UnitPoint(x: p4 ? 0.12 : 0.02, y: p4 ? 0.72 : 0.84),
+                        RadialGradient(colors: [Color.rPink.opacity(0.4), .clear],
+                                       center: UnitPoint(x: 0.05, y: 0.8),
                                        startRadius: 0, endRadius: w * 0.5)
                     }
                 }
                 .frame(width: w, height: geo.size.height)
             }
-            ParticleField()
         }
         .ignoresSafeArea()
-        .onAppear {
-            withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true))  { p1 = true }
-            withAnimation(.easeInOut(duration: 12).repeatForever(autoreverses: true).delay(1.5)) { p2 = true }
-            withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true).delay(3.0)) { p3 = true }
-            withAnimation(.easeInOut(duration: 14).repeatForever(autoreverses: true).delay(0.8)) { p4 = true }
-        }
     }
 }
 
@@ -207,14 +135,14 @@ struct GlassCard<Content: View>: View {
     var body: some View {
         content
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .fill(RColor.card(scheme))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .stroke(RColor.border(scheme), lineWidth: 1)
                     )
                     .shadow(color: Color.black.opacity(scheme == .dark ? 0.4 : 0.08),

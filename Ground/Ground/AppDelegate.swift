@@ -11,10 +11,22 @@ class KeyableWindow: NSWindow {
 
 // Intercepts close and hides instead, avoiding NSHostingController dealloc crash
 class HideOnCloseWindow: NSWindow, NSWindowDelegate {
+    private var hideAfterFullscreenExit = false
     override func awakeFromNib() { super.awakeFromNib(); delegate = self }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        orderOut(nil)
+        if styleMask.contains(.fullScreen) {
+            hideAfterFullscreenExit = true
+            toggleFullScreen(nil)
+        } else {
+            orderOut(nil)
+        }
         return false
+    }
+    func windowDidExitFullScreen(_ notification: Notification) {
+        if hideAfterFullscreenExit {
+            hideAfterFullscreenExit = false
+            orderOut(nil)
+        }
     }
 }
 
@@ -130,7 +142,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         )
         w.delegate = w
         w.contentViewController = NSHostingController(rootView: view)
-        w.level = .floating
+        w.level = .modalPanel
+        w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         w.isOpaque = false
         w.backgroundColor = .clear
         w.hasShadow = true

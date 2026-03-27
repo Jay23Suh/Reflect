@@ -88,8 +88,9 @@ struct JournalPopupView: View {
             }
             .padding(16)
         }
-        .frame(width: 520)
+        .frame(width: 560)
         .fixedSize(horizontal: false, vertical: true)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .onExitCommand(perform: onDismiss)
         .onChange(of: popupState.question) { _, _ in
             answer = ""
