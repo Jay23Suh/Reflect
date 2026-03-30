@@ -11,7 +11,6 @@ struct MainWindowView: View {
     @State private var tab: GroundTab = .home
     @State private var entries: [Entry] = []
     @State private var loading = true
-    @AppStorage("groundShowIntro") private var showIntro = true
 
     private var answeredEntries: [Entry] { entries.filter { !$0.skipped } }
 
@@ -26,13 +25,6 @@ struct MainWindowView: View {
     var body: some View {
         ZStack(alignment: .top) {
             GroundBackground()
-
-            if showIntro {
-                IntroOverlay {
-                    showIntro = false
-                }
-                .zIndex(10)
-            }
 
             VStack(spacing: 0) {
                 // Nav

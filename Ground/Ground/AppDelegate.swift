@@ -41,7 +41,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     private var checkTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private var activeSeconds: TimeInterval = 0
-    private let targetActiveSeconds: TimeInterval = 100 * 60  // 100 minutes of active use
+    private var targetActiveSeconds: TimeInterval {
+        let minutes = UserDefaults.standard.double(forKey: "groundPopupIntervalMinutes")
+        return (minutes >= 20 ? minutes : 100) * 60
+    }
     private let idleThreshold: TimeInterval = 5 * 60             // 5 min idle = paused
     private var popupWindow:       KeyableHideOnCloseWindow?
     private var mainWindow:        HideOnCloseWindow?
@@ -210,7 +213,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         w.contentViewController = NSHostingController(
             rootView: OnboardingView(onComplete: { [weak self] in
                 self?.onboardingWindow?.orderOut(nil)
-                self?.showMain()
             }).environmentObject(SupabaseManager.shared)
         )
         w.center()

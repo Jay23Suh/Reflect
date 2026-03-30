@@ -9,6 +9,7 @@ struct OnboardingView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var errorMsg = ""
+    @State private var showingIntro = false
 
     var body: some View {
         ZStack {
@@ -70,6 +71,12 @@ struct OnboardingView: View {
         .onAppear {
             if supabase.user != nil { onComplete?() }
         }
+        .overlay {
+            if showingIntro {
+                IntroOverlay { onComplete?() }
+                    .transition(.opacity)
+            }
+        }
     }
 
     private func handleSubmit() async {
@@ -80,7 +87,7 @@ struct OnboardingView: View {
             } else {
                 try await supabase.signUp(name: name, email: email, password: password)
             }
-            onComplete?()
+            withAnimation(.easeInOut(duration: 0.4)) { showingIntro = true }
         } catch {
             errorMsg = error.localizedDescription
         }

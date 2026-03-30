@@ -5,6 +5,8 @@ struct SettingsView: View {
     @EnvironmentObject var supabase: SupabaseManager
     @Environment(\.colorScheme) var scheme
 
+    @AppStorage("groundPopupIntervalMinutes") private var intervalMinutes: Double = 100
+
     @State private var currentPassword = ""
     @State private var newPassword = ""
     @State private var confirmPassword = ""
@@ -12,9 +14,73 @@ struct SettingsView: View {
     @State private var isError = false
     @State private var isSaving = false
 
+    private func formatInterval(_ minutes: Double) -> String {
+        let m = Int(minutes)
+        if m < 60 { return "\(m) min" }
+        let h = m / 60; let rem = m % 60
+        return rem == 0 ? "\(h)h" : "\(h)h \(rem)m"
+    }
+
+    private var minutesFieldBinding: Binding<String> {
+        Binding(
+            get: { "\(Int(intervalMinutes))" },
+            set: { if let v = Double($0) { intervalMinutes = min(max(v, 20), 1440) } }
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+
+                // Check-in frequency
+                SettingsSection(title: "check-in frequency") {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("popup appears after")
+                                .font(RFont.body(13))
+                                .foregroundColor(RColor.muted(scheme))
+                            Spacer()
+                            Text(formatInterval(intervalMinutes) + " of activity")
+                                .font(RFont.header(15))
+                                .foregroundColor(RColor.text(scheme))
+                        }
+
+                        Slider(value: $intervalMinutes, in: 20...1440, step: 5)
+                            .tint(.rOrange)
+
+                        HStack {
+                            Text("20 min")
+                                .font(RFont.mono(9))
+                                .foregroundColor(RColor.muted(scheme))
+                            Spacer()
+                            Text("24 hrs")
+                                .font(RFont.mono(9))
+                                .foregroundColor(RColor.muted(scheme))
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("or type minutes:")
+                                .font(RFont.mono(10))
+                                .foregroundColor(RColor.muted(scheme))
+                            TextField("", text: minutesFieldBinding)
+                                .textFieldStyle(.plain)
+                                .font(RFont.body(13))
+                                .foregroundColor(RColor.text(scheme))
+                                .multilineTextAlignment(.center)
+                                .frame(width: 60)
+                                .padding(6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8).fill(RColor.input(scheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(RColor.border(scheme), lineWidth: 1))
+                                )
+                        }
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12).fill(RColor.card(scheme))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(RColor.border(scheme), lineWidth: 1))
+                    )
+                }
 
                 // Account section
                 SettingsSection(title: "account") {
