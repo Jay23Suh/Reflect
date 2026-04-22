@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from './supabase'
+import { supabase, supabaseConfigError } from './supabase'
 import Abstract from './Wrapped'
 import { ReactComponent as LegoIcon } from './lego.svg'
 
@@ -74,15 +74,22 @@ const QUESTIONS = {
     "What is your favorite moment of teamwork and connection — what made it feel that way?",
     "Who is your hero, or someone you look up to, and what quality in them do you want to cultivate in yourself?",
     "What is an expectation you hold for the people around you, and do you hold yourself to that same standard?",
+    "Who in your life consistently asks you the kinds of questions that make you pause and rethink your assumptions?",
+    "If you were to host a dinner party, what is the feeling or atmosphere you want in that room?",
   ],
 }
 
 function pickQuestion() {
-  const categories = Object.keys(QUESTIONS)
-  const category = categories[Math.floor(Math.random() * categories.length)]
-  const list = QUESTIONS[category]
-  const question = list[Math.floor(Math.random() * list.length)]
-  return { question, category }
+  const all = Object.entries(QUESTIONS).flatMap(([cat, qs]) =>
+    qs.map(q => ({ question: q, category: cat }))
+  )
+  let queue = JSON.parse(localStorage.getItem('ground_question_queue') || '[]')
+  if (queue.length === 0) {
+    queue = [...Array(all.length).keys()].sort(() => Math.random() - 0.5)
+  }
+  const index = queue.shift()
+  localStorage.setItem('ground_question_queue', JSON.stringify(queue))
+  return all[index] ?? all[0]
 }
 
 function buildBuckets(entries, period) {
@@ -218,6 +225,8 @@ const CATEGORY_COLORS = {
   values:     '#76D7C4',
   emotions:   '#F7971D',
   grounding:  '#005499',
+  horizon:    '#60d4e8',
+  community:  '#5edb97',
 }
 
 function CategoryBreakdown({ breakdown }) {
@@ -336,15 +345,25 @@ export default function Home({ session }) {
   })
   const [hoursLeft, setHoursLeft] = useState(null)
   const [showAbstract, setShowAbstract] = useState(false)
+  const [errorMessage, setErrorMessage] = useState(supabaseConfigError || '')
 
   const userId = session.user.id
 
   const fetchEntries = useCallback(async () => {
-    const { data } = await supabase
+    if (!supabase) {
+      setErrorMessage(supabaseConfigError)
+      return
+    }
+    const { data, error } = await supabase
       .from('journal_entries')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+    setErrorMessage('')
     if (data) {
       setEntries(data)
       computeStats(data)
@@ -352,13 +371,23 @@ export default function Home({ session }) {
   }, [userId])
 
   const fetchActivityTracker = useCallback(async () => {
-    const { data } = await supabase
+    if (!supabase) {
+      setErrorMessage(supabaseConfigError)
+      return
+    }
+    const { data, error } = await supabase
       .from('activity_tracker')
       .select('last_popup_shown')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
 
     if (data?.last_popup_shown) {
+      setErrorMessage('')
       const last = new Date(data.last_popup_shown)
       const hoursPassed = (Date.now() - last.getTime()) / 3600000
       if (hoursPassed >= HOURS_BETWEEN_POPUPS) {
@@ -367,8 +396,15 @@ export default function Home({ session }) {
         setHoursLeft(Math.ceil(HOURS_BETWEEN_POPUPS - hoursPassed))
       }
     } else {
-      // First time user — insert row and show popup
-      await supabase.from('activity_tracker').insert({ user_id: userId, last_popup_shown: new Date().toISOString() })
+      // First time user — create the row and show the first prompt.
+      const { error: upsertError } = await supabase
+        .from('activity_tracker')
+        .upsert({ user_id: userId, last_popup_shown: new Date().toISOString() }, { onConflict: 'user_id' })
+      if (upsertError) {
+        setErrorMessage(upsertError.message)
+        return
+      }
+      setErrorMessage('')
       triggerPopup()
     }
   }, [userId])
@@ -387,18 +423,24 @@ export default function Home({ session }) {
 
   // Poll every 5 minutes — fire popup if 2 hours have passed since last
   useEffect(() => {
+    if (!supabase) return undefined
     const interval = setInterval(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('activity_tracker')
         .select('last_popup_shown')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
+      if (error) {
+        setErrorMessage(error.message)
+        return
+      }
       if (!data?.last_popup_shown) return
+      setErrorMessage('')
       const hoursPassed = (Date.now() - new Date(data.last_popup_shown).getTime()) / 3600000
       if (hoursPassed >= HOURS_BETWEEN_POPUPS) {
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('✦ a moment to ground', {
-            body: 'time for a quick groundion',
+            body: 'time for a quick grounding',
             icon: '/favicon.ico',
           })
         }
@@ -492,16 +534,31 @@ export default function Home({ session }) {
   }
 
   const handleSubmit = async () => {
+    if (!supabase) {
+      setErrorMessage(supabaseConfigError)
+      return
+    }
     if (!answer.trim()) return
     setSaving(true)
-    await supabase.from('journal_entries').insert({
+    setErrorMessage('')
+    const { error: entryError } = await supabase.from('journal_entries').insert({
       user_id: userId,
       question,
       category: questionCategory,
       answer: answer.trim(),
     })
-    await supabase.from('activity_tracker')
+    if (entryError) {
+      setErrorMessage(entryError.message)
+      setSaving(false)
+      return
+    }
+    const { error: activityError } = await supabase.from('activity_tracker')
       .upsert({ user_id: userId, last_popup_shown: new Date().toISOString() }, { onConflict: 'user_id' })
+    if (activityError) {
+      setErrorMessage(activityError.message)
+      setSaving(false)
+      return
+    }
     setShowPopup(false)
     setHoursLeft(HOURS_BETWEEN_POPUPS)
     fetchEntries()
@@ -509,21 +566,41 @@ export default function Home({ session }) {
   }
 
   const handleSkip = async () => {
-    await supabase.from('journal_entries').insert({
+    if (!supabase) {
+      setErrorMessage(supabaseConfigError)
+      return
+    }
+    setErrorMessage('')
+    const { error: entryError } = await supabase.from('journal_entries').insert({
       user_id: userId,
       question,
       category: questionCategory,
-      answer: null,
+      answer: '',
       skipped: true,
     })
-    await supabase.from('activity_tracker')
+    if (entryError) {
+      setErrorMessage(entryError.message)
+      return
+    }
+    const { error: activityError } = await supabase.from('activity_tracker')
       .upsert({ user_id: userId, last_popup_shown: new Date().toISOString() }, { onConflict: 'user_id' })
+    if (activityError) {
+      setErrorMessage(activityError.message)
+      return
+    }
     setShowPopup(false)
     setHoursLeft(HOURS_BETWEEN_POPUPS)
     fetchEntries()
   }
 
-  const handleSignOut = () => supabase.auth.signOut()
+  const handleSignOut = async () => {
+    if (!supabase) {
+      setErrorMessage(supabaseConfigError)
+      return
+    }
+    const { error } = await supabase.auth.signOut()
+    if (error) setErrorMessage(error.message)
+  }
 
   return (
     <div className="app">
@@ -567,7 +644,7 @@ export default function Home({ session }) {
       {view === 'home' && (
         <div className="page">
           <div className="home-hero">
-            <h1 className="home-title">hello, {session.user.user_metadata?.name}</h1>
+            <h1 className="home-title">hello, {session.user.user_metadata?.name || session.user.email}</h1>
             <p className="home-sub">
               {hoursLeft
                 ? `next prompt in ~${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`
@@ -584,6 +661,7 @@ export default function Home({ session }) {
             {stats.skipNudge && (
               <div className="skip-nudge">hey — make some time for yourself to ground today <LegoIcon style={{ width: 13, height: 13, verticalAlign: 'middle' }} /></div>
             )}
+            {errorMessage && <div className="skip-nudge">{errorMessage}</div>}
           </div>
 
           {entries.filter(e => !e.skipped).length > 0 && (

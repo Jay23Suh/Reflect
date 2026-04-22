@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from './supabase'
+import { supabase, supabaseConfigError } from './supabase'
 import { ReactComponent as LegoIcon } from './lego.svg'
 
 export default function Auth() {
@@ -12,6 +12,10 @@ export default function Auth() {
   const [isForgot, setIsForgot] = useState(false)  // eslint-disable-line
 
   const handleForgot = async () => {
+    if (!supabase) {
+      setMessage(supabaseConfigError)
+      return
+    }
     setLoading(true)
     setMessage('')
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -22,6 +26,10 @@ export default function Auth() {
   }
 
   const handleSubmit = async () => {
+    if (!supabase) {
+      setMessage(supabaseConfigError)
+      return
+    }
     setLoading(true)
     setMessage('')
     const { error } = isLogin

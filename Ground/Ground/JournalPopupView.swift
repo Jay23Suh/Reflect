@@ -72,6 +72,16 @@ struct JournalPopupView: View {
                         .padding(.top, 16)
                         .focused($focused)
 
+                    if let errorMessage = supabase.errorMessage, !errorMessage.isEmpty {
+                        Text(errorMessage)
+                            .font(RFont.body(12))
+                            .foregroundColor(.rOrange)
+                            .multilineTextAlignment(.leading)
+                            .padding(.horizontal, 28)
+                            .padding(.top, 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     // Buttons
                     HStack(spacing: 10) {
                         Button("skip") { Task { await handleSkip() } }
@@ -95,23 +105,35 @@ struct JournalPopupView: View {
         .onChange(of: popupState.question) { _, _ in
             answer = ""
             isSaving = false
+            supabase.errorMessage = nil
             focused = true
         }
-        .onAppear { focused = true }
+        .onAppear {
+            supabase.errorMessage = nil
+            focused = true
+        }
     }
 
     private func handleSave() async {
         let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         isSaving = true
-        try? await supabase.saveEntry(question: popupState.question, category: popupState.category, answer: trimmed)
-        NotificationCenter.default.post(name: .didJournal, object: nil)
-        onDismiss()
+        do {
+            try await supabase.saveEntry(question: popupState.question, category: popupState.category, answer: trimmed)
+            NotificationCenter.default.post(name: .didJournal, object: nil)
+            onDismiss()
+        } catch {
+            isSaving = false
+        }
     }
 
     private func handleSkip() async {
-        try? await supabase.saveSkip(question: popupState.question, category: popupState.category)
-        NotificationCenter.default.post(name: .didJournal, object: nil)
-        onDismiss()
+        do {
+            try await supabase.saveSkip(question: popupState.question, category: popupState.category)
+            NotificationCenter.default.post(name: .didJournal, object: nil)
+            onDismiss()
+        } catch {
+            isSaving = false
+        }
     }
 }

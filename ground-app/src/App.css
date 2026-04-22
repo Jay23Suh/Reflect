@@ -141,6 +141,8 @@ body {
 .entry-category--values     { background: rgba(118,215,196,0.15); color: #1a8a76; }
 .entry-category--emotions   { background: rgba(247,151,29,0.15);  color: #c07010; }
 .entry-category--grounding  { background: rgba(0,84,153,0.1);     color: #005499; }
+.entry-category--horizon    { background: rgba(96,212,232,0.15);  color: #1a9aad; }
+.entry-category--community  { background: rgba(94,219,151,0.15);  color: #1a8a5a; }
 
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
 .stats-card { background: var(--card-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 28px 24px; text-align: center; }
@@ -215,6 +217,8 @@ body {
   .entry-category--values     { background: rgba(118,215,196,0.12); color: #76D7C4; }
   .entry-category--emotions   { background: rgba(247,151,29,0.12);  color: #F7971D; }
   .entry-category--grounding  { background: rgba(118,215,196,0.10); color: #76D7C4; }
+  .entry-category--horizon    { background: rgba(96,212,232,0.12);  color: #60d4e8; }
+  .entry-category--community  { background: rgba(94,219,151,0.12);  color: #5edb97; }
 
   .auth-card { box-shadow: 0 8px 48px rgba(0,0,0,0.4); }
 

@@ -138,6 +138,8 @@ struct AbstractView: View {
         "values":     "Values & Meaning",
         "emotions":   "Emotions",
         "grounding":  "Present Moment",
+        "horizon":    "Growth & Goals",
+        "community":  "Connection",
     ]
     private let categorySubtexts: [String: String] = [
         "gratitude":  "you kept returning to what you already have.",
@@ -145,6 +147,8 @@ struct AbstractView: View {
         "values":     "you were asking what actually matters.",
         "emotions":   "you were letting yourself feel it.",
         "grounding":  "you were finding your way back to now.",
+        "horizon":    "you kept looking forward.",
+        "community":  "you were reaching out.",
     ]
 
     private func buildSlides() -> [AbstractSlide] {
@@ -297,6 +301,8 @@ struct AbstractView: View {
         case "values":      return "keep asking what\nmatters ✦"
         case "emotions":    return "feeling is\nalso healing ✦"
         case "grounding":   return "the present\nis enough ✦"
+        case "horizon":     return "keep looking\nforward ✦"
+        case "community":   return "you're not\nalone ✦"
         default:            return "keep showing up\nfor yourself ✦"
         }
     }
@@ -376,7 +382,7 @@ struct TitleSlideView: View {
     var body: some View {
         ZStack { Color(hex: "#110d07").ignoresSafeArea()
             VStack(spacing: 0) {
-                Text("your week in journaling")
+                Text("your journey in journaling")
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .tracking(5).textCase(.uppercase)
                     .foregroundColor(Color(hex: "#f0c060").opacity(0.4))

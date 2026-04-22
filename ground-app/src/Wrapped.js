@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from './supabase'
-import { ReactComponent as LegoIcon } from './lego.svg'
+import { supabase, supabaseConfigError } from './supabase'
 
 // ── Count-up animation ────────────────────────────────────────────────────────
 function useCountUp(target, active, duration = 1400) {
@@ -17,7 +16,7 @@ function useCountUp(target, active, duration = 1400) {
       if (t < 1) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
-  }, [target, active])
+  }, [target, active, duration])
   return value
 }
 
@@ -135,7 +134,7 @@ function TitleSlide({ visible }) {
   return (
     <div style={slide('#110d07', visible)}>
       <p style={{ color: '#f0c06066', fontSize: 12, letterSpacing: 5, textTransform: 'uppercase', marginBottom: 28, fontFamily: 'Helvetica, sans-serif' }}>
-        your week in journaling
+        your journey in journaling
       </p>
       <h1 style={{ color: '#f0c060', fontSize: 80, fontFamily: 'Georgia, serif', fontWeight: 'bold', lineHeight: 1.1 }}>
         Abstract ✦
@@ -209,7 +208,7 @@ function buildSlides(entries) {
   const stats = computeStats(entries)
   const defs = [{ type: 'title' }]
 
-  defs.push({ type: 'count', bg: '#1e0e05', accent: '#ff8c42', value: stats.totalEntries, label: 'entries this week', context: stats.totalEntries === 1 ? 'you showed up.' : 'you kept showing up.' })
+  defs.push({ type: 'count', bg: '#1e0e05', accent: '#ff8c42', value: stats.totalEntries, label: 'entries written', context: stats.totalEntries === 1 ? 'you showed up.' : 'you kept showing up.' })
   defs.push({ type: 'count', bg: '#071a0f', accent: '#5edb97', value: stats.totalWords, label: 'words written', context: 'every one of them mattered.' })
 
   if (stats.avgWordsPerEntry > 0) {
@@ -225,7 +224,7 @@ function buildSlides(entries) {
   }
 
   if (stats.longestStreak > 1) {
-    defs.push({ type: 'count', bg: '#181205', accent: '#ffc840', value: stats.longestStreak, label: 'day streak this week', context: 'consistency is a form of care.' })
+    defs.push({ type: 'count', bg: '#181205', accent: '#ffc840', value: stats.longestStreak, label: 'day streak', context: 'consistency is a form of care.' })
   }
 
   const CATEGORY_LABELS = {
@@ -234,6 +233,8 @@ function buildSlides(entries) {
     values:      'Values & Meaning',
     emotions:    'Emotions',
     grounding:   'Present Moment',
+    horizon:     'Looking Ahead',
+    community:   'Community & Connection',
   }
   const CATEGORY_SUBTEXTS = {
     gratitude:   'you kept returning to what you already have.',
@@ -241,6 +242,8 @@ function buildSlides(entries) {
     values:      'you were asking what actually matters.',
     emotions:    'you were letting yourself feel it.',
     grounding:   'you were finding your way back to now.',
+    horizon:     'you were thinking about where you\'re headed.',
+    community:   'you were thinking about the people around you.',
   }
   if (stats.topCategory) {
     defs.push({
@@ -256,7 +259,7 @@ function buildSlides(entries) {
       : 'you showed up most of the time. that matters.'
     defs.push({
       type: 'text', bg: '#100a18', accent: '#FFA6C9',
-      headline: `${stats.totalSkips} skipped this week`,
+      headline: `${stats.totalSkips} skipped overall`,
       subtext: skipMsg,
     })
   }
@@ -270,17 +273,28 @@ export default function Wrapped({ session, onClose }) {
   const [entries, setEntries] = useState(null)
   const [slides, setSlides] = useState([])
   const [current, setCurrent] = useState(0)
+  const [errorMessage, setErrorMessage] = useState(supabaseConfigError || '')
 
   useEffect(() => {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+    if (!supabase) {
+      setEntries([])
+      setErrorMessage(supabaseConfigError)
+      return undefined
+    }
+
     supabase
       .from('journal_entries')
       .select('*')
       .eq('user_id', session.user.id)
-      .gte('created_at', sevenDaysAgo)
       .order('created_at', { ascending: true })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          setEntries([])
+          setErrorMessage(error.message)
+          return
+        }
         const e = data ?? []
+        setErrorMessage('')
         setEntries(e)
         setSlides(buildSlides(e))
       })
@@ -306,10 +320,47 @@ export default function Wrapped({ session, onClose }) {
     )
   }
 
+  const answered = entries.filter(e => e.answer && e.answer.trim())
+  const oldestDate = answered.length > 0 ? new Date(answered[0].created_at) : null
+  const daysIn = oldestDate ? Math.floor((Date.now() - oldestDate.getTime()) / 86400000) : 0
+  const isUnlocked = answered.length >= 10 && daysIn >= 7
+  const daysLeft = Math.max(0, 7 - daysIn)
+  const entriesLeft = Math.max(0, 10 - answered.length)
+
+  if (!isUnlocked) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#110d07', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 200, textAlign: 'center', padding: '40px' }}>
+        <p style={{ color: '#f0c060', fontFamily: 'Georgia, serif', fontSize: 48, fontWeight: 'bold', marginBottom: 16 }}>abstract ✦</p>
+        <p style={{ color: '#ffffff66', fontFamily: 'Georgia, serif', fontSize: 18, fontStyle: 'italic', maxWidth: 400, marginBottom: 36 }}>
+          a visual review of your journey — your patterns, your words, your mood.
+        </p>
+        {errorMessage && (
+          <p style={{ color: '#ffa6c9', fontFamily: 'Helvetica, sans-serif', fontSize: 13, maxWidth: 440, lineHeight: 1.5, marginBottom: 24 }}>
+            {errorMessage}
+          </p>
+        )}
+        <p style={{ color: '#f0c06066', fontFamily: 'Helvetica, sans-serif', fontSize: 11, letterSpacing: 4, textTransform: 'uppercase', marginBottom: 16 }}>available after</p>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 40 }}>
+          {[
+            { label: daysLeft === 0 ? '7 days ✓' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`, met: daysLeft === 0 },
+            { label: entriesLeft === 0 ? '10 entries ✓' : `${entriesLeft} ${entriesLeft === 1 ? 'entry' : 'entries'} left`, met: entriesLeft === 0 },
+          ].map(({ label, met }) => (
+            <div key={label} style={{ padding: '8px 18px', borderRadius: 20, border: `1px solid ${met ? '#5edb9744' : '#ffffff22'}`, color: met ? '#5edb97' : '#ffffff44', fontFamily: 'Helvetica, sans-serif', fontSize: 13 }}>
+              {label}
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #f0c06033', color: '#f0c06066', fontFamily: 'Helvetica, sans-serif', fontSize: 13, letterSpacing: 3, padding: '12px 28px', borderRadius: 40, cursor: 'pointer', textTransform: 'uppercase' }}>
+          back to journal
+        </button>
+      </div>
+    )
+  }
+
   if (entries.length === 0) {
     return (
       <div style={{ position: 'fixed', inset: 0, background: '#110d07', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-        <p style={{ color: '#f0c060', fontFamily: 'Georgia, serif', fontSize: 40, fontWeight: 'bold' }}>no entries this week ✦</p>
+        <p style={{ color: '#f0c060', fontFamily: 'Georgia, serif', fontSize: 40, fontWeight: 'bold' }}>no entries yet ✦</p>
         <p style={{ color: '#ffffff44', fontFamily: 'Georgia, serif', fontSize: 16, marginTop: 16, fontStyle: 'italic' }}>start journaling and come back.</p>
         <button onClick={onClose} style={{ marginTop: 40, background: 'transparent', border: '1px solid #f0c06044', color: '#f0c06088', fontFamily: 'Helvetica, sans-serif', fontSize: 13, letterSpacing: 3, padding: '12px 28px', borderRadius: 40, cursor: 'pointer', textTransform: 'uppercase' }}>
           back to journal
@@ -317,6 +368,8 @@ export default function Wrapped({ session, onClose }) {
       </div>
     )
   }
+
+  const isLastSlide = current === slides.length - 1
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, cursor: 'pointer' }} onClick={advance}>
@@ -331,6 +384,19 @@ export default function Wrapped({ session, onClose }) {
         }
       })}
       <Dots total={slides.length} current={current} />
+      {!isLastSlide && (
+        <button
+          onClick={e => { e.stopPropagation(); onClose() }}
+          style={{
+            position: 'absolute', top: 20, right: 20,
+            background: 'rgba(255,255,255,0.08)', border: 'none',
+            borderRadius: '50%', width: 32, height: 32,
+            color: 'rgba(255,255,255,0.4)', fontSize: 14,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 210,
+          }}
+        >✕</button>
+      )}
     </div>
   )
 }

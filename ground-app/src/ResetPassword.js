@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from './supabase'
+import { supabase, supabaseConfigError } from './supabase'
 
 export default function ResetPassword({ onDone }) {
   const [password, setPassword] = useState('')
@@ -10,6 +10,10 @@ export default function ResetPassword({ onDone }) {
   const handleReset = async () => {
     if (password !== confirm) {
       setMessage('passwords do not match')
+      return
+    }
+    if (!supabase) {
+      setMessage(supabaseConfigError)
       return
     }
     setLoading(true)

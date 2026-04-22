@@ -26,7 +26,6 @@ struct Questions {
     static let bank: [(String, Category)] = [
         // Gratitude
         ("What's something you're grateful for in this exact moment?", .gratitude),
-        ("What's one thing about your body you appreciate today?", .gratitude),
         ("What's something in your surroundings you feel thankful for?", .gratitude),
         ("What's a routine or habit you're glad you have?", .gratitude),
         ("What's a comfort you enjoyed today — food, warmth, rest, music?", .gratitude),
@@ -62,7 +61,6 @@ struct Questions {
 
         // Emotions
         ("What emotion is most noticeable in you right now?", .emotions),
-        ("Where did you feel that emotion in your body today?", .emotions),
         ("What's something that felt surprisingly heavy today?", .emotions),
         ("What's something that felt surprisingly light or easy today?", .emotions),
         ("What emotion did you try to push away, and why?", .emotions),
@@ -93,7 +91,6 @@ struct Questions {
         ("What sensations can you feel in your body right now?", .grounding),
         ("What are three things you can see, two you can hear, one you can feel?", .grounding),
         ("What does your breathing actually feel like in this moment?", .grounding),
-        ("What's one place in your body that feels okay or neutral?", .grounding),
         ("What's a small detail around you that you hadn't noticed before?", .grounding),
         ("What tells you that you are safe enough in this moment?", .grounding),
         ("What's one thing you can let go of, just for the next minute?", .grounding),

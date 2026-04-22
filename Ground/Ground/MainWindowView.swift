@@ -59,6 +59,18 @@ struct MainWindowView: View {
                 )
                 .overlay(Divider(), alignment: .bottom)
 
+                if let errorMessage = supabase.errorMessage, !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(RFont.body(12))
+                        .foregroundColor(.rOrange)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 10)
+                        .background(Color.rOrange.opacity(0.08))
+                        .overlay(Divider(), alignment: .bottom)
+                }
+
                 // Content
                 if loading {
                     Spacer()
@@ -90,6 +102,9 @@ struct MainWindowView: View {
         .frame(minWidth: 640, minHeight: 480)
         .task { await loadEntries() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await loadEntries() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didJournal)) { _ in
             Task { await loadEntries() }
         }
     }

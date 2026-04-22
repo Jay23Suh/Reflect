@@ -1,40 +1,59 @@
 import { useState, useEffect } from 'react'
-import { supabase, isPasswordRecovery } from './supabase'
+import { supabase, isPasswordRecovery, supabaseConfigError } from './supabase'
 import Auth from './Auth'
 import Home from './Home'
-import Intro from './Intro'
 import ResetPassword from './ResetPassword'
 import './App.css'
 
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [showIntro, setShowIntro] = useState(() => !localStorage.getItem('ground_intro_seen'))
+  const [errorMessage, setErrorMessage] = useState(supabaseConfigError)
   // Seed from URL hash — captured before Supabase clears it
   const [isRecovery, setIsRecovery] = useState(isPasswordRecovery)
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return undefined
+    }
+
+    let cancelled = false
+
+    const restoreSession = async () => {
+      const { data, error } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (error) {
+        setErrorMessage(error.message)
+      } else {
+        setSession(data.session)
+      }
+      setLoading(false)
+    }
+
+    restoreSession()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovery(true)
         setSession(session)
+        setErrorMessage('')
         setLoading(false)
       } else if (event === 'SIGNED_OUT') {
         setIsRecovery(false)
         setSession(null)
+        setErrorMessage('')
         setLoading(false)
       } else {
-        // INITIAL_SESSION or SIGNED_IN — only update session, don't clear recovery
         setSession(session)
+        setErrorMessage('')
         setLoading(false)
       }
     })
 
-    const timeout = setTimeout(() => setLoading(false), 1000)
-
     return () => {
+      cancelled = true
       subscription.unsubscribe()
-      clearTimeout(timeout)
     }
   }, [])
 
@@ -44,7 +63,19 @@ export default function App() {
     </div>
   )
 
+  if (errorMessage) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="auth-header">
+            <h1>supabase needs attention</h1>
+            <p>{errorMessage}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (isRecovery) return <ResetPassword onDone={() => setIsRecovery(false)} />
-  if (session && showIntro) return <Intro onDone={() => setShowIntro(false)} />
   return session ? <Home session={session} /> : <Auth />
 }
