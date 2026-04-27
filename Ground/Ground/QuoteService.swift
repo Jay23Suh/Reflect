@@ -45,27 +45,6 @@ class QuoteService: ObservableObject {
         return fallback
     }
 
-    func shouldShowModal(profile: Profile?) -> Bool {
-        guard let profile = profile else { return false }
-
-        let now = Date()
-        let calendar = Calendar.current
-        let components = (profile.quote_start_time ?? "06:00:00").components(separatedBy: ":")
-        let hours = Int(components[0]) ?? 6
-        let minutes = components.count > 1 ? Int(components[1]) ?? 0 : 0
-
-        var referencePoint = calendar.startOfDay(for: now)
-        referencePoint = calendar.date(bySettingHour: hours, minute: minutes, second: 0, of: referencePoint) ?? referencePoint
-        if now < referencePoint {
-            referencePoint = calendar.date(byAdding: .day, value: -1, to: referencePoint) ?? referencePoint
-        }
-
-        if let lastShownStr = profile.last_quote_shown_at,
-           let lastShown = ISO8601DateFormatter().date(from: lastShownStr) {
-            return lastShown < referencePoint
-        }
-        return true
-    }
 
     private func saveToCache(quote: Quote, date: String) {
         if let encoded = try? JSONEncoder().encode(QuoteCache(date: date, quote: quote)) {

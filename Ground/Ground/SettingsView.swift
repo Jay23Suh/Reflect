@@ -199,15 +199,16 @@ struct SettingsView: View {
             return
         }
         
-        let timeString = profile.quote_start_time ?? "06:00:00"
+        let timeString = profile.quote_start_time ?? "08:00:00"
         let components = timeString.components(separatedBy: ":")
-        let hours = Int(components[0]) ?? 6
+        let hours = Int(components[0]) ?? 8
         let minutes = components.count > 1 ? Int(components[1]) ?? 0 : 0
-        
+        UserDefaults.standard.set(String(format: "%02d:%02d", hours, minutes), forKey: "groundQuoteStartTime")
+
         let calendar = Calendar.current
         var date = calendar.startOfDay(for: Date())
         date = calendar.date(bySettingHour: hours, minute: minutes, second: 0, of: date) ?? date
-        
+
         await MainActor.run {
             self.quoteStartTime = date
             self.isProfileLoading = false
@@ -219,8 +220,9 @@ struct SettingsView: View {
         let hours = components.hour ?? 6
         let minutes = components.minute ?? 0
         let timeString = String(format: "%02d:%02d:00", hours, minutes)
-        
+        UserDefaults.standard.set(String(format: "%02d:%02d", hours, minutes), forKey: "groundQuoteStartTime")
         try? await supabase.updateProfile(startTime: timeString)
+        (NSApp.delegate as? AppDelegate)?.scheduleDailyQuoteNotification()
     }
 
     private func handleChangePassword() async {

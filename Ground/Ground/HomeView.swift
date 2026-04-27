@@ -93,20 +93,6 @@ struct HomeView: View {
             }
         .task {
             await quoteService.getQuoteOfTheDay()
-            if let profile = await supabase.fetchProfile(),
-               quoteService.shouldShowModal(profile: profile),
-               let quote = quoteService.currentQuote {
-                let content = UNMutableNotificationContent()
-                content.title = "a moment to ground ✦"
-                content.body = "\"\(quote.q)\" — \(quote.a)"
-                let request = UNNotificationRequest(
-                    identifier: "daily-quote",
-                    content: content,
-                    trigger: nil
-                )
-                try? await UNUserNotificationCenter.current().add(request)
-                await supabase.updateLastQuoteShown()
-            }
         }
     }
 

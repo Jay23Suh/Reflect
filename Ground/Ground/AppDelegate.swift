@@ -66,6 +66,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         nc.addObserver(forName: .didJournal,      object: nil, queue: .main) { [weak self] _ in self?.activeSeconds = 0 }
 
         showOnboarding()
+        scheduleDailyQuoteNotification()
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -104,6 +105,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             activeSeconds = 0
             showPopup()
             fireJournalNotification()
+        }
+    }
+
+    func scheduleDailyQuoteNotification() {
+        let timeString = UserDefaults.standard.string(forKey: "groundQuoteStartTime") ?? "08:00"
+        let parts = timeString.components(separatedBy: ":")
+        let hour = Int(parts[0]) ?? 8
+        let minute = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
+
+        Task {
+            let quote = await QuoteService.shared.getQuoteOfTheDay()
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                guard settings.authorizationStatus == .authorized else { return }
+                let content = UNMutableNotificationContent()
+                content.title = "a moment to ground ✦"
+                content.body = "\"\(quote.q)\" — \(quote.a)"
+                var dateComponents = DateComponents()
+                dateComponents.hour = hour
+                dateComponents.minute = minute
+                let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+                let request = UNNotificationRequest(identifier: "daily-quote", content: content, trigger: trigger)
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["daily-quote"])
+                UNUserNotificationCenter.current().add(request)
+            }
         }
     }
 
