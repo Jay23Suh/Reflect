@@ -26,25 +26,14 @@ export const QuoteService = {
     return FALLBACK_QUOTE
   },
 
-  shouldShowModal(profile) {
-    if (!profile) return false
-
-    const { quote_start_time, last_quote_shown_at } = profile
-    const now = new Date()
-    const [hours, minutes] = (quote_start_time || '06:00:00').split(':').map(Number)
-
-    let referencePoint = new Date()
-    referencePoint.setHours(hours, minutes, 0, 0)
-    if (now < referencePoint) referencePoint.setDate(referencePoint.getDate() - 1)
-
-    if (!last_quote_shown_at) return true
-    return new Date(last_quote_shown_at) < referencePoint
+  shouldShowModal() {
+    const today = new Date().toISOString().split('T')[0]
+    const lastShown = localStorage.getItem('ground_quote_last_shown')
+    return lastShown !== today
   },
 
-  async markQuoteAsShown(supabase, userId) {
-    await supabase
-      .from('profiles')
-      .update({ last_quote_shown_at: new Date().toISOString() })
-      .eq('id', userId)
+  markQuoteAsShown() {
+    const today = new Date().toISOString().split('T')[0]
+    localStorage.setItem('ground_quote_last_shown', today)
   },
 }

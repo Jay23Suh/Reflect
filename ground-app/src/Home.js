@@ -359,11 +359,17 @@ export default function Home({ session }) {
 
   const userId = session.user.id
 
-  const fetchQuote = useCallback(async (currentProfile) => {
+  const fetchQuote = useCallback(async () => {
     const dailyQuote = await QuoteService.getQuoteOfTheDay()
     setQuote(dailyQuote)
-    if (QuoteService.shouldShowModal(currentProfile)) {
+    if (QuoteService.shouldShowModal()) {
       setShowQuoteModal(true)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('✦ a moment to ground', {
+          body: `"${dailyQuote.q}" — ${dailyQuote.a}`,
+          icon: '/favicon.ico',
+        })
+      }
     }
   }, [])
 
@@ -405,7 +411,7 @@ export default function Home({ session }) {
       setProfile(data)
       setQuoteStartTime((data.quote_start_time || '06:00:00').slice(0, 5))
     }
-    fetchQuote(data)
+    fetchQuote()
   }, [userId, fetchQuote])
 
   const fetchActivityTracker = useCallback(async () => {
@@ -500,14 +506,10 @@ export default function Home({ session }) {
     setShowPopup(true)
   }
 
-  const handleDismissQuote = async () => {
-    try {
-      await QuoteService.markQuoteAsShown(userId);
-      setShowQuoteModal(false);
-    } catch (error) {
-      setErrorMessage(error.message);
-    }
-  };
+  const handleDismissQuote = () => {
+    QuoteService.markQuoteAsShown()
+    setShowQuoteModal(false)
+  }
 
   const handleUpdateProfile = async (updates) => {
     try {
