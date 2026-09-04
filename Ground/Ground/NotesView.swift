@@ -112,9 +112,9 @@ private enum FlatSection: Identifiable {
 
     var id: String {
         switch self {
-        case .yearHeader(let g):             return "y-\(g.id)"
-        case .monthHeader(let y, let m):     return "m-\(y)-\(m.id)"
-        case .memoryItem(let y, let m, let i): return "i-\(y)-\(m)-\(i.id)"
+        case .yearHeader(let g):             return "year-\(g.id)"
+        case .monthHeader(let y, let m):     return "month-\(y)-\(m.id)"
+        case .memoryItem(let y, let m, let i): return "item-\(y)-\(m)-\(i.id)"
         }
     }
 }
@@ -303,6 +303,17 @@ struct NotesView: View {
                     .font(RFont.header(28))
                     .foregroundColor(RColor.text(scheme))
                 Spacer()
+                Button { Task { await loadNotes() } } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(RColor.text(scheme))
+                        .padding(8)
+                        .background(Circle().fill(RColor.card(scheme))
+                            .overlay(Circle().stroke(RColor.border(scheme), lineWidth: 1)))
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 8)
+                
                 Button { Task { await newNote() } } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 15, weight: .medium))
@@ -468,6 +479,7 @@ struct NotesView: View {
                             }
                             .padding(.bottom, 40)
                         }
+                        .refreshable { await loadNotes() }
 
                         if !datedGroups.isEmpty {
                             Divider().opacity(0.4)
@@ -1244,6 +1256,9 @@ struct NoteInvitePopover: View {
         }
         .padding(20)
         .frame(width: 300)
+        .animation(.default, value: collectiveEventId)
+        .animation(.default, value: members.count)
+        .animation(.default, value: inviteStatus)
         .task { await load() }
     }
 
