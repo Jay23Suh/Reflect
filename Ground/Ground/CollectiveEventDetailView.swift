@@ -114,13 +114,28 @@ struct CollectiveEventDetailView: View {
 
                         // Write area
                         VStack(alignment: .leading, spacing: 14) {
-                            Text(isSubmitted ? "your memory" : "what do you remember?")
-                                .font(isSubmitted ? RFont.mono(10).uppercaseSmallCaps() : RFont.body(13).italic())
-                                .foregroundColor(isSubmitted
-                                    ? RColor.muted(scheme).opacity(0.7)
-                                    : RColor.muted(scheme))
-                                .tracking(isSubmitted ? 2 : 0)
-                                .padding(.top, 20)
+                            HStack(alignment: .bottom) {
+                                Text(isSubmitted ? "your memory" : "what do you remember?")
+                                    .font(isSubmitted ? RFont.mono(10).uppercaseSmallCaps() : RFont.body(13).italic())
+                                    .foregroundColor(isSubmitted
+                                        ? RColor.muted(scheme).opacity(0.7)
+                                        : RColor.muted(scheme))
+                                    .tracking(isSubmitted ? 2 : 0)
+                                
+                                Spacer()
+                                
+                                if isSubmitted {
+                                    Button("edit") {
+                                        isSubmitted = false
+                                        editorFocused = true
+                                        scheduleSave()
+                                    }
+                                    .buttonStyle(.plain)
+                                    .font(RFont.body(12).weight(.medium))
+                                    .foregroundColor(.rMint)
+                                }
+                            }
+                            .padding(.top, 20)
 
                             TextEditor(text: $content)
                                 .font(RFont.body(16))
@@ -238,7 +253,7 @@ struct CollectiveEventDetailView: View {
 
     private func load() async {
         isLoading = true
-        allPerspectives = (try? await supabase.fetchCollectivePerspectives(eventId: event.id)) ?? []
+        allPerspectives = (try? await supabase.fetchCollectivePerspectives(eventIds: [event.id])) ?? []
         if let myId, let mine = allPerspectives.first(where: { $0.user_id == myId }) {
             content = mine.content
             isSubmitted = mine.submitted
@@ -268,7 +283,7 @@ struct CollectiveEventDetailView: View {
         do {
             try await supabase.saveCollectivePerspective(eventId: event.id, content: content, submitted: true)
             isSubmitted = true
-            allPerspectives = (try? await supabase.fetchCollectivePerspectives(eventId: event.id)) ?? []
+            allPerspectives = (try? await supabase.fetchCollectivePerspectives(eventIds: [event.id])) ?? []
         } catch {
             print("submit perspective error:", error)
         }

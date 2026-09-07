@@ -501,19 +501,28 @@ struct NotesView: View {
     private func loadNotes() async {
         NSLog("DIAG NotesView.loadNotes start")
         loading = true
-        notes = (try? await supabase.fetchNotes()) ?? []
-        loading = false
-        NSLog("DIAG NotesView.loadNotes end, count=\(notes.count)")
-        Task { await supabase.backfillPlaces(in: notes) }
-        Task { await reloadCollectiveEvents() }
+        defer { loading = false }
+        do {
+            let fetched = try await supabase.fetchNotes()
+            notes = fetched
+            NSLog("DIAG NotesView.loadNotes end, count=\(notes.count)")
+            Task { await supabase.backfillPlaces(in: fetched) }
+            Task { await reloadCollectiveEvents() }
+        } catch {
+            NSLog("DIAG NotesView.loadNotes error: \(error)")
+        }
     }
 
     private func reloadCollectiveEvents() async {
         NSLog("DIAG reloadCollectiveEvents start")
-        let events = (try? await supabase.fetchCollectiveEvents()) ?? []
-        collectiveEvents = events
-        NSLog("DIAG reloadCollectiveEvents end, count=\(events.count)")
-        collectiveActivity = await supabase.fetchCollectiveActivity(events: events)
+        do {
+            let events = try await supabase.fetchCollectiveEvents()
+            collectiveEvents = events
+            NSLog("DIAG reloadCollectiveEvents end, count=\(events.count)")
+            collectiveActivity = await supabase.fetchCollectiveActivity(events: events)
+        } catch {
+            NSLog("DIAG reloadCollectiveEvents error: \(error)")
+        }
     }
 
     private func deleteNote(_ note: Note) async {
@@ -756,7 +765,7 @@ struct NoteEditorView: View {
     @EnvironmentObject var supabase: SupabaseManager
     @Environment(\.colorScheme) var scheme
 
-    private let original: Note
+    @State private var currentNote: Note
     let onDone: (NoteEditorResult) -> Void
 
     @State private var content: String
@@ -772,7 +781,7 @@ struct NoteEditorView: View {
     @FocusState private var editorFocused: Bool
 
     init(note: Note, onDone: @escaping (NoteEditorResult) -> Void) {
-        self.original = note
+        _currentNote = State(initialValue: note)
         self.onDone = onDone
         _content          = State(initialValue: note.content)
         _yearText         = State(initialValue: note.year.map { "\($0)" } ?? "")
@@ -856,7 +865,7 @@ struct NoteEditorView: View {
                 .buttonStyle(.plain)
                 .popover(isPresented: $showInvite, arrowEdge: .bottom) {
                     NoteInvitePopover(
-                        noteId: original.id,
+                        noteId: currentNote.id,
                         noteContent: content,
                         noteDateStr: {
                             guard let y = Int(yearText), let m = month, let d = day else { return nil }
@@ -913,21 +922,35 @@ struct NoteEditorView: View {
 
     @discardableResult
     private func performSave() async -> Note {
-        var updated = original
+        var updated = currentNote
         updated.content = content
         updated.year = Int(yearText)
         updated.month = month
         updated.day = day
         updated.place = place?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().nilIfEmpty
         updated.collective_event_id = collectiveEventId
-        try? await supabase.updateNote(updated)
+        
+        if updated.content == currentNote.content &&
+           updated.year == currentNote.year &&
+           updated.month == currentNote.month &&
+           updated.day == currentNote.day &&
+           updated.place == currentNote.place &&
+           updated.collective_event_id == currentNote.collective_event_id {
+            return currentNote
+        }
+        
+        do {
+            try await supabase.updateNote(updated)
+            currentNote = updated
+        } catch {
+            NSLog("DIAG error updating note: \(error)")
+        }
         return updated
     }
 
     private func saveAndDismiss() async {
         if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            try? await supabase.deleteNote(id: original.id)
-            onDone(.deleted)
+            await deleteNote()
         } else {
             let saved = await performSave()
             onDone(.saved(saved))
@@ -935,8 +958,12 @@ struct NoteEditorView: View {
     }
 
     private func deleteNote() async {
-        try? await supabase.deleteNote(id: original.id)
-        onDone(.deleted)
+        do {
+            try await supabase.deleteNote(id: currentNote.id)
+            onDone(.deleted)
+        } catch {
+            NSLog("DIAG error deleting note: \(error)")
+        }
     }
 }
 

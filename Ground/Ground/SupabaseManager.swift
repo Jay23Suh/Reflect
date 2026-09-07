@@ -52,7 +52,9 @@ class SupabaseManager: ObservableObject {
     private var sessionRestoreTask: Task<Void, Never>?
 
     private init() {
-        sessionRestoreTask = Task { await restoreSession() }
+        sessionRestoreTask = Task { [weak self] in
+            await self?.restoreSession()
+        }
     }
 
     func waitForSessionRestore() async {
@@ -520,21 +522,23 @@ class SupabaseManager: ObservableObject {
             .execute()
             .value
         guard !rows.isEmpty else { return [] }
-        let filter = rows.map { "id.eq.\($0.event_id.uuidString)" }.joined(separator: ",")
+        let eventIds = rows.map { $0.event_id.uuidString }
         return try await client
             .from("collective_events")
             .select()
-            .or(filter)
+            .in("id", values: eventIds)
             .order("created_at", ascending: false)
             .execute()
             .value
     }
 
-    func fetchCollectivePerspectives(eventId: UUID) async throws -> [CollectivePerspective] {
-        try await client
+    func fetchCollectivePerspectives(eventIds: [UUID]) async throws -> [CollectivePerspective] {
+        guard !eventIds.isEmpty else { return [] }
+        let ids = eventIds.map { $0.uuidString }
+        return try await client
             .from("collective_perspectives")
             .select("id, event_id, user_id, content, submitted, updated_at, author:profiles!user_id(id, username)")
-            .eq("event_id", value: eventId.uuidString)
+            .in("event_id", values: ids)
             .execute()
             .value
     }
@@ -576,14 +580,15 @@ class SupabaseManager: ObservableObject {
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastCheckKey)
 
         let events = (try? await fetchCollectiveEvents()) ?? []
-        NSLog("DIAG checkForNewCollectivePerspectives events.count=\(events.count)")
         guard !events.isEmpty else { return }
+
+        let eventIds = events.map { $0.id }
+        let allPerspectives = (try? await fetchCollectivePerspectives(eventIds: eventIds)) ?? []
+        let perspectivesByEvent = Dictionary(grouping: allPerspectives, by: { $0.event_id })
 
         var newCount = 0
         for event in events {
-            let t0 = Date()
-            let perspectives = (try? await fetchCollectivePerspectives(eventId: event.id)) ?? []
-            NSLog("DIAG  perspectives for event \(event.id) took \(Date().timeIntervalSince(t0))s, count=\(perspectives.count)")
+            let perspectives = perspectivesByEvent[event.id] ?? []
             let newOnes = perspectives.filter {
                 $0.user_id != uid && $0.submitted && parseISO($0.updated_at) > lastCheck
             }
@@ -641,8 +646,12 @@ class SupabaseManager: ObservableObject {
 
     func fetchCollectiveActivity(events: [CollectiveEvent]) async -> [UUID: Date] {
         var result: [UUID: Date] = [:]
+        let eventIds = events.map { $0.id }
+        let allPerspectives = (try? await fetchCollectivePerspectives(eventIds: eventIds)) ?? []
+        let perspectivesByEvent = Dictionary(grouping: allPerspectives, by: { $0.event_id })
+        
         for event in events {
-            let perspectives = (try? await fetchCollectivePerspectives(eventId: event.id)) ?? []
+            let perspectives = perspectivesByEvent[event.id] ?? []
             let latestPerspective = perspectives.compactMap { parseISO($0.updated_at) }.max()
             result[event.id] = max(latestPerspective ?? .distantPast, parseISO(event.created_at))
         }

@@ -125,6 +125,7 @@ struct MainWindowView: View {
         .frame(minWidth: 640, minHeight: 480)
         .sheet(isPresented: $showNotificationPrompt) {
             NotificationPromptView { showNotificationPrompt = false }
+                .frame(width: 460, height: 380)
         }
         .task { await loadEntries() }
         .task { await checkNotificationPrompt() }
@@ -150,10 +151,17 @@ struct MainWindowView: View {
         let requestedUserId = supabase.user?.id
         NSLog("DIAG loadEntries start showSpinner=\(showSpinner) loading=\(loading)")
         if showSpinner { loading = true }
+        defer {
+            if showSpinner {
+                loading = false
+                NSLog("DIAG loadEntries deferred loading=\(loading)")
+            }
+        }
+        
         do {
             let fetched = try await supabase.fetchEntries()
             guard !Task.isCancelled, supabase.user?.id == requestedUserId else {
-                NSLog("DIAG loadEntries cancelled/stale, returning early, loading=\(loading)")
+                NSLog("DIAG loadEntries cancelled/stale, returning early")
                 return
             }
             entries = fetched
@@ -161,8 +169,6 @@ struct MainWindowView: View {
         } catch {
             NSLog("DIAG loadEntries error: \(error)")
         }
-        if showSpinner { loading = false }
-        NSLog("DIAG loadEntries end loading=\(loading)")
     }
 
     private func checkNotificationPrompt() async {

@@ -47,7 +47,6 @@ struct NotificationPromptView: View {
 
             Spacer()
         }
-        .frame(width: 460, height: 380)
     }
 
     private func requestAndDismiss() async {
